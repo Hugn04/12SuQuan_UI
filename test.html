@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="vi">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Đăng nhập/Đăng ký</title>
+        <style>
+            body {
+                font-family: Arial, sans-serif;
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                height: 100vh;
+                background-color: #f0f0f0;
+                margin: 0;
+            }
+
+            .container {
+                width: 300px;
+                padding: 20px;
+                background-color: white;
+                box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+                border-radius: 10px;
+                transition: all 0.5s ease-in-out;
+            }
+
+            .input-field {
+                /* width: 100%; */
+                width: 92%;
+                padding: 10px;
+                margin: 10px 0;
+                border: 1px solid #ccc;
+                border-radius: 5px;
+            }
+
+            .input-field:focus {
+                border-color: #007bff;
+                outline: none;
+            }
+
+            .btn {
+                width: 100%;
+                padding: 10px;
+                margin: 10px 0;
+                border: none;
+                border-radius: 5px;
+                background-color: #007bff;
+                color: white;
+                cursor: pointer;
+                transition: background-color 0.3s ease;
+            }
+
+            .btn:hover {
+                background-color: #0056b3;
+            }
+
+            .toggle {
+                text-align: center;
+                cursor: pointer;
+                color: #007bff;
+            }
+
+            .hidden {
+                display: none;
+            }
+
+            .show-password {
+                position: relative;
+            }
+
+            .eye-icon {
+                position: absolute;
+                right: 10px;
+                top: 50%;
+                transform: translateY(-50%);
+                cursor: pointer;
+            }
+
+            .error-message {
+                color: red;
+                text-align: center;
+                margin-top: 10px;
+                display: none;
+            }
+
+            .success-message {
+                color: green;
+                text-align: center;
+                margin-top: 10px;
+                display: none;
+            }
+
+            .fade-out {
+                opacity: 0;
+                transition: opacity 1s ease;
+            }
+        </style>
+    </head>
+
+    <body>
+        <div class="container" id="login-container">
+            <h2>Đăng nhập</h2>
+            <input type="text" class="input-field" id="login-id" placeholder="Nhập ID" maxlength="20" />
+            <button class="btn" id="login-btn">Đăng nhập</button>
+            <div class="toggle" id="toggle-register">Chưa có tài khoản? Đăng ký</div>
+            <div class="error-message" id="login-error">Chưa nhập mã lưu.</div>
+            <div id="loginError"></div>
+        </div>
+        <div class="container hidden" id="register-container">
+            <h2>Đăng ký</h2>
+            <input type="text" class="input-field" id="phone-number" placeholder="Số điện thoại" maxlength="10" />
+            <div class="show-password">
+                <input type="password" class="input-field" id="password" placeholder="Mật khẩu" maxlength="6" />
+                <span class="eye-icon" id="toggle-password">👁️</span>
+            </div>
+            <button class="btn" id="register-btn">Đăng ký</button>
+            <div class="toggle" id="toggle-login">Đã có tài khoản? Đăng nhập</div>
+            <div class="error-message" id="register-error">Chưa nhập số điện thoại hoặc mật khẩu.</div>
+            <div class="success-message" id="register-success">
+                Chúc mừng bạn đã đăng ký tài khoản thành công.<br />
+                Hãy ấn lưu mã này: <span id="user-code"></span>
+                <button class="btn" id="save-code-btn">Lưu mã</button>
+            </div>
+        </div>
+        <script>
+            const validIDChars = [
+                '𝕵',
+                '𝖀',
+                '𝕭',
+                '𝕻',
+                '𝕮',
+                '𝕾',
+                '𝕿',
+                '𝕸',
+                '𝕽',
+                '𝕺',
+                '☇',
+                '☈',
+                '❀',
+                '❈',
+                '✪',
+                '✾',
+                '✮',
+                '✧',
+                '⬱',
+                '❖',
+                '⚝',
+                '⎋',
+                '☾',
+                '♛',
+                '♚',
+                '♡',
+                '❦',
+                '✤',
+                '✲',
+                '➙',
+                '➪',
+                '⍣',
+                '⌘',
+                '⎓',
+                '✯',
+                '♫',
+                '_',
+                '.',
+            ];
+            const phoneToCode = { 0: '𝕺', 1: '𝕵', 2: '𝖀', 3: '𝕭', 4: '𝕻', 5: '𝕮', 6: '𝕾', 7: '𝕿', 8: '𝕸', 9: '𝕽' };
+            const loginIDInput = document.getElementById('login-id');
+            const phoneNumberInput = document.getElementById('phone-number');
+            const passwordInput = document.getElementById('password');
+            const togglePasswordBtn = document.getElementById('toggle-password');
+            const loginBtn = document.getElementById('login-btn');
+            const registerBtn = document.getElementById('register-btn');
+            const saveCodeBtn = document.getElementById('save-code-btn');
+            const loginError = document.getElementById('login-error');
+            const registerError = document.getElementById('register-error');
+            const registerSuccess = document.getElementById('register-success');
+            const userCodeSpan = document.getElementById('user-code');
+            const loginContainer = document.getElementById('login-container');
+            const registerContainer = document.getElementById('register-container');
+            const toggleLogin = document.getElementById('toggle-login');
+            const toggleRegister = document.getElementById('toggle-register');
+            let userCode = '';
+            // Filter input for valid ID characters
+            const allowedChars = '𝕵𝖀𝕭𝕻𝕮𝕾𝕿𝕸𝕽𝕺☇☈❀❈✪✾✮✧⬱❖⚝⎋☾♛♚♡❦✤✲➙➪⍣⌘⎓✯♫_.';
+            // Kiểm tra các ký tự nhập vào ô ID
+            loginIDInput.addEventListener('input', () => {
+                let inputValue = loginIDInput.value;
+                let filteredValue = '';
+                // Duyệt qua từng ký tự để kiểm tra xem nó có trong allowedChars hay không
+                for (let char of inputValue) {
+                    if (allowedChars.includes(char)) {
+                        filteredValue += char; // Nếu là ký tự hợp lệ, thêm vào chuỗi mới
+                    }
+                }
+                // Cập nhật lại giá trị của input chỉ với các ký tự hợp lệ
+                loginIDInput.value = filteredValue;
+            });
+
+            // Chuyển đổi giữa hiển thị/ẩn mật khẩu và biểu tượng
+            togglePasswordBtn.addEventListener('click', () => {
+                if (passwordInput.type === 'password') {
+                    passwordInput.type = 'text';
+                    togglePasswordBtn.innerHTML = '🙈'; // Icon "mắt đóng"
+                } else {
+                    passwordInput.type = 'password';
+                    togglePasswordBtn.innerHTML = '👁️'; // Icon "mắt mở"
+                }
+            });
+
+            // Chuyển sang form đăng ký
+            toggleRegister.addEventListener('click', () => {
+                loginContainer.classList.add('hidden');
+                registerContainer.classList.remove('hidden');
+            });
+            // Chuyển sang form đăng nhập
+            toggleLogin.addEventListener('click', () => {
+                registerContainer.classList.add('hidden');
+                loginContainer.classList.remove('hidden');
+            });
+            // Hành động nút Đăng ký
+            // registerBtn.addEventListener('click', () => {
+            //     const phone = phoneNumberInput.value;
+            //     const password = passwordInput.value;
+            //     if (phone === '' || password === '') {
+            //         registerError.style.display = 'block';
+            //         setTimeout(() => {
+            //             registerError.classList.add('fade-out');
+            //         }, 1000);
+            //         setTimeout(() => {
+            //             registerError.style.display = 'none';
+            //             registerError.classList.remove('fade-out');
+            //         }, 2000);
+            //     } else {
+            //         userCode = phone.split('').map(num => phoneToCode[num]).join('') + '_𝕺';
+            //         userCodeSpan.textContent = userCode;
+            //         registerSuccess.style.display = 'block';
+            //     }
+            // });
+
+            //         // Hành động nút Đăng nhập
+            //        loginBtn.addEventListener('click', () => {
+            //     const enteredCode = loginIDInput.value;
+            //     // Kiểm tra nếu ô nhập trống
+            //     if (enteredCode === '') {
+            //         loginError.style.display = 'block';
+            //         loginError.textContent = 'Chưa nhập mã lưu.';
+            //         setTimeout(() => {
+            //             loginError.classList.add('fade-out');
+            //         }, 1000);
+            //         setTimeout(() => {
+            //             loginError.style.display = 'none';
+            //             loginError.classList.remove('fade-out');
+            //         }, 2000);
+            //     } else {
+            //         // Nếu có mã, in 'OK' ra console
+            //         console.log('OK');
+            //     }
+            // });
+            // xóa mọi kí tự trong ô sdt
+            phoneNumberInput.addEventListener('input', () => {
+                phoneNumberInput.value = phoneNumberInput.value.replace(/\D/g, '');
+            });
+            // xóa mọi khoảng cách ô nhập mật khẩu
+            passwordInput.addEventListener('input', () => {
+                // Loại bỏ tất cả các ký tự khoảng trắng
+                passwordInput.value = passwordInput.value.replace(/\s/g, '');
+            });
+
+            // Hành động nút Đăng ký_Lưu Mã
+            saveCodeBtn.addEventListener('click', () => {
+                const codeToCopy = userCode;
+                // Copy the code to clipboard
+                navigator.clipboard
+                    .writeText(codeToCopy)
+                    .then(() => {
+                        // console.log("Mã đã được sao chép:", codeToCopy);
+                        // Hiển thị thông báo sao chép thành công
+                        alert('Mã đã được sao chép vào bộ nhớ: ' + codeToCopy);
+                        // Ẩn bảng sau 1 giây
+                        setTimeout(() => {
+                            registerSuccess.classList.add('fade-out');
+                        }, 700);
+                        // Sau khi mã được sao chép, chuyển về bảng đăng nhập
+                        setTimeout(() => {
+                            registerSuccess.style.display = 'none';
+                            registerSuccess.classList.remove('fade-out');
+                            setTimeout(() => {
+                                toggleLogin.click(); // Automatically switch back to login form after saving
+                            }, 700);
+                        }, 1700);
+                    })
+                    .catch((err) => {
+                        console.error('Lỗi khi sao chép mã: ', err);
+                    });
+            });
+
+            // Mảng ký tự đặc biệt ngẫu nhiên
+            const specialChars = [
+                '☇',
+                '☈',
+                '❀',
+                '❈',
+                '✪',
+                '✾',
+                '✮',
+                '✧',
+                '⬱',
+                '❖',
+                '⚝',
+                '⎋',
+                '☾',
+                '♛',
+                '♚',
+                '♡',
+                '❦',
+                '✤',
+                '✲',
+                '➙',
+                '➪',
+                '⍣',
+                '⌘',
+                '⎓',
+                '✯',
+                '♫',
+            ];
+
+            // Hàm tạo chuỗi ngẫu nhiên với 3 ký tự trước và 2 ký tự sau chuỗi cố định ☾⌘, và 1 ký tự cuối là ☇
+            function generateRandomSpecialString() {
+                let randomStr = '';
+                // Thêm 3 ký tự ngẫu nhiên
+                for (let i = 0; i < 3; i++) {
+                    randomStr += specialChars[Math.floor(Math.random() * specialChars.length)];
+                }
+                // Thêm chuỗi cố định ☾⌘
+                randomStr += '☾⌘';
+                // Thêm 2 ký tự ngẫu nhiên
+                for (let i = 0; i < 2; i++) {
+                    randomStr += specialChars[Math.floor(Math.random() * specialChars.length)];
+                }
+                // Thêm ký tự cố định ☇
+                randomStr += '☇';
+                return randomStr;
+            }
+
+            // Hành động nút Đăng ký
+            registerBtn.addEventListener('click', () => {
+                const phone = phoneNumberInput.value;
+                const password = passwordInput.value;
+
+                if (phone === '' || password === '') {
+                    registerError.style.display = 'block';
+                    setTimeout(() => {
+                        registerError.classList.add('fade-out');
+                    }, 1000);
+                    setTimeout(() => {
+                        registerError.style.display = 'none';
+                        registerError.classList.remove('fade-out');
+                    }, 2000);
+                } else {
+                    // Chuyển số điện thoại thành mã
+                    const phoneCode = phone
+                        .split('')
+                        .map((num) => phoneToCode[num])
+                        .join('');
+
+                    // Tạo chuỗi ngẫu nhiên từ các ký tự đặc biệt
+                    const randomSpecialString = generateRandomSpecialString();
+
+                    // Kết hợp chuỗi đặc biệt với mã và thêm _𝕺 vào cuối
+                    userCode = `${phoneCode}_${randomSpecialString}_𝕺`;
+
+                    userCodeSpan.textContent = userCode;
+                    registerSuccess.style.display = 'block';
+                }
+            });
+
+            // Hành động nút Đăng nhập
+            loginBtn.addEventListener('click', () => {
+                const enteredCode = loginIDInput.value;
+                // Kiểm tra nếu ô nhập trống
+                if (enteredCode === '') {
+                    errorLogin('Chưa nhập mã lưu.');
+                } else {
+                    if (enteredCode.includes('_')) {
+                        // Tìm đoạn mã giữa dấu _ thứ 1 và thứ 2
+                        const parts = enteredCode.split('_');
+                        const specialPart = parts[1]; // Đoạn mã cần kiểm tra
+
+                        // Kiểm tra nếu đoạn mã có độ dài 8 và các ký tự ở vị trí cố định là ☾⌘ và ☇
+                        if (
+                            specialPart.length === 8 &&
+                            specialPart[3] === '☾' &&
+                            specialPart[4] === '⌘' &&
+                            specialPart[7] === '☇'
+                        ) {
+                            console.log('OK'); // Mã đúng
+                        } else {
+                            errorLogin('Mã lưu sai.');
+                        }
+                    } else {
+                        errorLogin('Mã lưu sai.');
+                    }
+                }
+                function errorLogin(x) {
+                    loginError.style.display = 'block';
+                    loginError.textContent = x;
+                    setTimeout(() => {
+                        loginError.classList.add('fade-out');
+                    }, 1000);
+                    setTimeout(() => {
+                        loginError.style.display = 'none';
+                        loginError.classList.remove('fade-out');
+                    }, 2000);
+                }
+            });
+        </script>
+    </body>
+</html>
