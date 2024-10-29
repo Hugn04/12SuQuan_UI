@@ -1,146 +1,142 @@
-import Player from '../core/Player.js';
-import Scene from './Scene';
 import Phaser from 'phaser';
+import Joystick from '../helpers/joystick';
 
 class Test extends Phaser.Scene {
     constructor() {
-        super({ key: 'MyGame' });
-        this.player;
-        this.monsters = [];
-        this.chairs = [];
-        this.cursors;
-        this.playerVelocityX = 0;
-        this.playerVelocityY = 0;
-        this.PLAYER_SPEED = 100; // Tốc độ di chuyển của nhân vật
-        this.MONSTER_NAMES = ['Goblin', 'Orc', 'Troll']; // Tên quái vật
-        this.selectedMonsterIndex = -1; // Chỉ số quái vật được chọn
-        this.indicator; // Mũi tên chỉ định
-        this.monsterPresent = 0;
-        this.monstersNear = []; // Lưu danh sách các quái vật gần
-        this.currentMonsterIndex = 0; // Quái vật đang được chọn
-        this.monsterSelectedManually = false;
+        super('Test');
     }
 
     preload() {
-        this.load.image('player', 'https://labs.phaser.io/assets/sprites/phaser-dude.png');
-        this.load.image('monster', 'https://labs.phaser.io/assets/sprites/phaser-dude.png');
-        this.load.image('chair', 'https://labs.phaser.io/assets/sprites/arrow.png');
-        this.load.image('arrow', 'https://labs.phaser.io/assets/sprites/arrow.png'); // Mũi tên chỉ định
+        this.load.image('glass', 'assets/tilemaps/tiles/Glass.png');
+        this.load.tilemapTiledJSON('map', 'assets/tilemaps/maps/Map1.json');
+        this.load.tilemapTiledJSON('map2', 'assets/tilemaps/maps/Map2.json');
+
+        this.load.spritesheet('player', 'assets/sprites/player.png', { frameWidth: 100, frameHeight: 149 });
     }
 
     create() {
-        // Tạo nhân vật
-        this.player = this.physics.add.sprite(400, 300, 'player');
+        this.loadMap('map');
+        this.player = this.physics.add.sprite(100, 100, 'player');
         this.player.setCollideWorldBounds(true);
-        this.physics.add.collider(this.player, this.chairs, this.stopPlayer);
+        this.player.setScale(0.5);
+        this.physics.world.setBounds(0, 0, this.currentMap.widthInPixels, this.currentMap.heightInPixels);
+        this.cameras.main.startFollow(this.player);
+        this.cameras.main.setBounds(0, 0, this.currentMap.widthInPixels, this.currentMap.heightInPixels);
 
-        // Tạo quái vật
-        for (let i = 0; i < this.MONSTER_NAMES.length; i++) {
-            const monster = this.physics.add.sprite(100 + 20 * i, 100 + 20 * i, 'monster');
-            // monster.setVelocity(Phaser.Math.Between(-100, 100), Phaser.Math.Between(-100, 100));
-            monster.setBounce(1);
-            monster.setCollideWorldBounds(true);
-            this.monsters.push(monster);
-
-            // Thêm tên cho quái vật
-            const nameText = this.add.text(monster.x, monster.y - 25, this.MONSTER_NAMES[i], {
-                fontSize: '16px',
-                fill: '#fff',
-            });
-            monster.nameText = nameText; // Lưu tên vào quái vật
-        }
-
-        // Tạo ghế cố định
-        for (let i = 0; i < 3; i++) {
-            const chair = this.physics.add.staticSprite(200 + i * 200, 400, 'chair');
-            this.chairs.push(chair);
-        }
-
-        // Thiết lập điều khiển
         this.cursors = this.input.keyboard.createCursorKeys();
 
-        // Va chạm giữa quái vật và ghế
-        this.monsters.forEach((monster) => {
-            this.chairs.forEach((chair) => {
-                this.physics.add.collider(monster, chair);
-            });
+        this.input.keyboard.on('keydown', (e) => {
+            switch (e.key) {
+                case '1':
+                    this.switchMap('map');
+                    break;
+                case '2':
+                    this.switchMap('map2');
+                    break;
+                default:
+                    break;
+            }
         });
 
-        // Mũi tên chỉ định
-        this.indicator = this.add.image(0, 0, 'arrow').setOrigin(0.5, 0.5).setVisible(false);
-
-        // Chuyển đổi giữa các quái vật
-        this.input.keyboard.on('keydown-SPACE', () => {
-            console.log('haha');
-            this.currentMonsterIndex = (this.currentMonsterIndex + 1) % this.monstersNear.length;
-            this.monsterPresent = this.monstersNear[this.currentMonsterIndex];
-            this.monsterSelectedManually = true; // Ghi nhớ rằng người chơi đã chọn thủ công
+        this.anims.create({ key: 'turn', frames: [{ key: 'player', frame: 0 }], frameRate: 20 });
+        this.anims.create({
+            key: 'left',
+            frames: this.anims.generateFrameNumbers('player', { start: 8, end: 11 }),
+            frameRate: 10,
+            repeat: -1,
         });
+        this.anims.create({
+            key: 'right',
+            frames: this.anims.generateFrameNumbers('player', { start: 12, end: 13 }),
+            frameRate: 10,
+            repeat: -1,
+        });
+        this.anims.create({
+            key: 'down',
+            frames: this.anims.generateFrameNumbers('player', { start: 0, end: 3 }),
+            frameRate: 10,
+            repeat: -1,
+        });
+        this.anims.create({
+            key: 'up',
+            frames: this.anims.generateFrameNumbers('player', { start: 4, end: 7 }),
+            frameRate: 10,
+            repeat: -1,
+        });
+        this.player.setDepth(1);
+
+        this.joystick = new Joystick(this, 150, 750, 70);
     }
+    update(time, delta) {
+        const speed = 20 * delta;
+        const direction = this.joystick.getDirection();
 
-    update(time) {
-        if (this.cursors.left.isDown) {
-            this.playerVelocityX = -this.PLAYER_SPEED;
-            this.playerVelocityY = 0;
-        } else if (this.cursors.right.isDown) {
-            this.playerVelocityX = this.PLAYER_SPEED;
-            this.playerVelocityY = 0;
-        } else if (this.cursors.up.isDown) {
-            this.playerVelocityY = -this.PLAYER_SPEED;
-            this.playerVelocityX = 0;
-        } else if (this.cursors.down.isDown) {
-            this.playerVelocityY = this.PLAYER_SPEED;
-            this.playerVelocityX = 0;
+        // Cập nhật vị trí của player dựa trên joystick
+        if (direction.x !== 0 || direction.y !== 0) {
+            this.player.setVelocity(speed * direction.x * 2, speed * direction.y * 2); // Nhân với 2 để tăng tốc độ
+
+            // Chọn animation phù hợp dựa trên hướng di chuyển
+            const absX = Math.abs(direction.x);
+            const absY = Math.abs(direction.y);
+
+            if (direction.x < 0) {
+                if (direction.y < 0) {
+                    if (absX < absY) {
+                        this.player.anims.play('up', true);
+                    } else {
+                        this.player.anims.play('left', true);
+                    }
+                } else {
+                    if (absX > absY) {
+                        this.player.anims.play('left', true);
+                    } else {
+                        this.player.anims.play('down', true);
+                    }
+                }
+            } else {
+                if (direction.y < 0) {
+                    if (absX > absY) {
+                        this.player.anims.play('right', true);
+                    } else {
+                        this.player.anims.play('up', true);
+                    }
+                } else {
+                    if (absX > absY) {
+                        this.player.anims.play('right', true);
+                    } else {
+                        this.player.anims.play('down', true);
+                    }
+                }
+            }
+
+            // if (direction.x < 0) {
+            //     this.player.anims.play('left', true);
+            // } else if (direction.x > 0) {
+            //     this.player.anims.play('right', true);
+            // }
+
+            // if (direction.y < 0) {
+            //     this.player.anims.play('up', true);
+            // } else if (direction.y > 0) {
+            //     this.player.anims.play('down', true);
+            // }
         } else {
-            this.playerVelocityX = 0;
-            this.playerVelocityY = 0;
-        }
-
-        // Áp dụng vận tốc cho nhân vật
-        this.player.setVelocity(this.playerVelocityX, this.playerVelocityY);
-
-        // Kiểm tra khoảng cách gần quái vật
-        // selectedMonsterIndex = -1; // Reset chỉ số quái vật đã chọn
-        let previousMonstersNear = [...this.monstersNear]; // Lưu lại danh sách trước đó để so sánh
-        this.monstersNear = [];
-        this.monsters.forEach((monster, index) => {
-            const distance = Phaser.Math.Distance.Between(this.player.x, this.player.y, monster.x, monster.y);
-            monster.nameText.setPosition(monster.x, monster.y - 25); // Cập nhật vị trí tên quái vật
-
-            if (distance < 100) {
-                // Khoảng cách để chọn quái vật
-                // Cập nhật vị trí mũi tên chỉ định
-                // selectedMonsterIndex = index; // Chọn quái vật
-
-                this.monstersNear.push(monster);
-            }
-        });
-
-        // Nếu danh sách quái vật gần thay đổi và không có hành động chuyển quái vật
-        if (
-            this.monstersNear.length > 0 &&
-            (!this.monsterSelectedManually || this.monstersNear !== previousMonstersNear)
-        ) {
-            // Kiểm tra và điều chỉnh this.currentMonsterIndex
-            if (this.currentMonsterIndex >= this.monstersNear.length) {
-                this.currentMonsterIndex = 0; // Đặt lại chỉ số về 0 nếu vượt quá
-            }
-            this.monsterPresent = this.monstersNear[this.currentMonsterIndex];
-            this.indicator.setVisible(true);
-            this.indicator.setPosition(this.monsterPresent.x, this.monsterPresent.y - 25);
-        }
-
-        // Nếu không có quái vật gần, ẩn mũi tên chỉ định
-        if (this.monstersNear.length === 0) {
-            this.indicator.setVisible(false);
-
-            this.monsterSelectedManually = false; // Reset lại trạng thái chuyển thủ công
-            this.currentMonsterIndex = 0;
+            this.player.setVelocity(0, 0);
+            this.player.anims.play('turn', true); // Khi không di chuyển, phát animation "turn"
         }
     }
-    stopPlayer() {
-        this.playerVelocityX = 0;
-        this.playerVelocityY = 0;
+    loadMap(mapKey) {
+        this.currentMap = this.make.tilemap({ key: mapKey });
+        const groundTiles = this.currentMap.addTilesetImage('Glass', 'glass');
+
+        const layerName = this.currentMap.getLayerIndex(0).name || 'Tile Layer 1';
+        this.layer = this.currentMap.createLayer(layerName, [groundTiles]);
+        this.layer.setDepth(0);
+    }
+
+    switchMap(newMapKey) {
+        this.layer.destroy();
+        this.loadMap(newMapKey);
     }
 }
 

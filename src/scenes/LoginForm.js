@@ -1,82 +1,128 @@
 import Phaser from 'phaser';
-//import { socket } from '../service';
+
 class LoginForm extends Phaser.Scene {
     constructor() {
         super('LoginForm');
     }
 
     preload() {
-        //this.load.setBaseURL('https://labs.phaser.io/');
-        //this.load.image('ground', 'assets/tilemaps/tiles/kenny_ground_64x64.png');
-        //this.load.image('items', 'assets/tilemaps/tiles/kenny_items_64x64.png');
         this.load.image('glass', 'assets/tilemaps/tiles/Glass.png');
         this.load.tilemapTiledJSON('map', 'assets/tilemaps/maps/Map1.json');
         this.load.tilemapTiledJSON('map2', 'assets/tilemaps/maps/Map2.json');
+
+        this.load.spritesheet('player', 'assets/sprites/player.png', { frameWidth: 100, frameHeight: 149 });
     }
 
     create() {
-        this.currentMap = this.make.tilemap({ key: 'map2' });
-        var groundTiles = this.currentMap.addTilesetImage('Glass', 'glass');
+        this.loadMap('map');
 
-        //  To use multiple tilesets in a single layer, pass them in an array like this:
-        this.currentMap.createLayer('Tile Layer 1', [groundTiles]);
+        this.player = this.physics.add.sprite(100, 100, 'player');
+        this.player.setCollideWorldBounds(true);
+
+        this.physics.world.setBounds(0, 0, this.currentMap.widthInPixels, this.currentMap.heightInPixels);
+        this.cameras.main.startFollow(this.player);
+        this.cameras.main.setBounds(0, 0, this.currentMap.widthInPixels, this.currentMap.heightInPixels);
+
+        this.cursors = this.input.keyboard.createCursorKeys();
+
         this.input.keyboard.on('keydown', (e) => {
             switch (e.key) {
                 case '1':
-                    this.switchMap();
+                    this.switchMap('map');
                     break;
                 case '2':
-                    break;
-                case '3':
+                    this.switchMap('map2');
                     break;
                 default:
                     break;
             }
         });
-        //  Or you can pass an array of strings, where they = the Tileset name
-        // map.createLayer('Tile Layer 1', [ 'kenny_ground_64x64', 'kenny_items_64x64', 'kenny_platformer_64x64' ]);
 
-        this.cameras.main.setBounds(0, 0, this.currentMap.widthInPixels, this.currentMap.heightInPixels);
-
-        var cursors = this.input.keyboard.createCursorKeys();
-
-        var controlConfig = {
-            camera: this.cameras.main,
-            left: cursors.left,
-            right: cursors.right,
-            up: cursors.up,
-            down: cursors.down,
-            speed: 0.5,
-        };
-
-        this.controls = new Phaser.Cameras.Controls.FixedKeyControl(controlConfig);
-
-        var help = this.add.text(16, 16, 'Arrow keys to scroll', {
-            fontSize: '18px',
-            padding: { x: 10, y: 5 },
-            backgroundColor: '#000000',
-            fill: '#ffffff',
+        this.anims.create({ key: 'turn', frames: [{ key: 'player', frame: 0 }], frameRate: 20 });
+        this.anims.create({
+            key: 'left',
+            frames: this.anims.generateFrameNumbers('player', { start: 8, end: 11 }),
+            frameRate: 10,
+            repeat: -1,
         });
-
-        help.setScrollFactor(0);
+        this.anims.create({
+            key: 'right',
+            frames: this.anims.generateFrameNumbers('player', { start: 12, end: 13 }),
+            frameRate: 10,
+            repeat: -1,
+        });
+        this.anims.create({
+            key: 'down',
+            frames: this.anims.generateFrameNumbers('player', { start: 0, end: 3 }),
+            frameRate: 10,
+            repeat: -1,
+        });
+        this.anims.create({
+            key: 'up',
+            frames: this.anims.generateFrameNumbers('player', { start: 4, end: 7 }),
+            frameRate: 10,
+            repeat: -1,
+        });
+        this.player.setDepth(1);
     }
-    switchMap(mapKey, tileset) {
-        // Xóa layer hiện tại (nếu có)
-        if (this.currentMap) {
-            this.currentMap.destroy();
-        }
 
-        // Tạo tilemap mới
+    loadMap(mapKey) {
         this.currentMap = this.make.tilemap({ key: mapKey });
+        const groundTiles = this.currentMap.addTilesetImage('Glass', 'glass');
 
-        // Tạo layer mới với cùng tileset
-        const newLayer = this.currentMap.createLayer('layer_name', tileset, 0, 0);
-
-        // Thêm collider vào layer mới
-        newLayer.setCollisionByProperty({ collides: true });
+        const layerName = this.currentMap.getLayerIndex(0).name || 'Tile Layer 1';
+        this.layer = this.currentMap.createLayer(layerName, [groundTiles]);
+        this.layer.setDepth(0);
     }
+
+    switchMap(newMapKey) {
+        this.layer.destroy();
+        this.loadMap(newMapKey);
+    }
+
     update(time, delta) {
-        this.controls.update(delta);
+        const speed = 200;
+        let directions = [];
+
+        // Xử lý di chuyển theo phím nhấn cuối cùng
+        if (this.cursors.left.isDown) {
+            directions.push('left');
+        }
+        if (this.cursors.right.isDown) {
+            directions.push('right');
+        }
+        if (this.cursors.up.isDown) {
+            directions.push('up');
+        }
+        if (this.cursors.down.isDown) {
+            directions.push('down');
+        }
+        // console.log(directions);
+
+        directions.forEach((direction, index) => {
+            if (direction === 'left') {
+                this.player.setVelocity(-speed, 0);
+            }
+            if (direction === 'right') {
+                this.player.setVelocity(speed, 0);
+            }
+            if (direction === 'up') {
+                this.player.setVelocity(0, -speed);
+            }
+            if (direction === 'down') {
+                this.player.setVelocity(0, speed);
+            }
+            // {
+            //     this.player.setVelocity(0, 0);
+            // }
+            if (index === directions.length - 1) {
+                this.player.anims.play(direction, true);
+            }
+        });
+        if (directions.length === 0) {
+            this.player.setVelocity(0, 0);
+            this.player.anims.play('turn', true);
+        }
     }
 }
 
