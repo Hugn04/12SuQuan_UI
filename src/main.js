@@ -4,8 +4,8 @@ import scene from './scenes';
 import { desktop, mobile, sizeDevice } from './utils/breakPoints';
 
 let sizes = {
-    width: 800,
-    height: 600,
+    width: 1280,
+    height: 720,
 };
 if (mobile) {
     sizes = {
@@ -30,9 +30,15 @@ const config = {
         autoCenter: Phaser.Scale.CENTER_BOTH,
     },
     physics: {
-        default: 'arcade',
-        arcade: {
+        default: 'matter',
+        matter: {
             gravity: { y: 0 },
+            enableSleep: true,
+            debug: false,
+        },
+        arcade: {
+            gravity: { y: 1 },
+            enableSleep: true,
             debug: false,
         },
     },

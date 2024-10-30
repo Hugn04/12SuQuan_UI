@@ -8,9 +8,11 @@ class Joystick {
             .setOrigin(0.5)
             .setScrollFactor(0);
         this.joystickArea.setInteractive();
-        this.scene.input.on('pointerdown', this.onPointerDown, this);
+        this.joystickArea.on('pointerdown', this.onPointerDown, this);
         this.scene.input.on('pointerup', this.onPointerUp, this);
         this.scene.input.on('pointermove', this.onPointerMove, this);
+        this.joystick.setDepth(999);
+        this.joystickArea.setDepth(999);
 
         this.isMoving = false;
         this.direction = { x: 0, y: 0 };

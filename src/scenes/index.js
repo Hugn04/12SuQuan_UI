@@ -2,6 +2,6 @@ import GameScene from './GameScene';
 import LoginForm from './LoginForm';
 import Test from './Test';
 
-const scene = [Test, GameScene];
+const scene = [GameScene, Test];
 
 export default scene;
