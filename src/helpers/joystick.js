@@ -11,6 +11,7 @@ class Joystick {
         this.joystickArea.on('pointerdown', this.onPointerDown, this);
         this.scene.input.on('pointerup', this.onPointerUp, this);
         this.scene.input.on('pointermove', this.onPointerMove, this);
+        this.scene.input.on('gameout', this.onPointerUp, this);
         this.joystick.setDepth(999);
         this.joystickArea.setDepth(999);
 
@@ -53,13 +54,11 @@ class Joystick {
         }
     }
     getPointOnCircle(circleCenter, radius, externalPoint) {
-        const [a, b] = circleCenter; // Tâm hình tròn
-        const [x_p, y_p] = externalPoint; // Điểm bên ngoài
+        const [a, b] = circleCenter;
+        const [x_p, y_p] = externalPoint;
 
-        // Tính khoảng cách d từ tâm đến điểm bên ngoài
         const d = Math.sqrt((x_p - a) ** 2 + (y_p - b) ** 2);
 
-        // Tính tọa độ điểm D trên đường tròn
         const x_d = a + (radius * (x_p - a)) / d;
         const y_d = b + (radius * (y_p - b)) / d;
 

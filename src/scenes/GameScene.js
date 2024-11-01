@@ -1,11 +1,11 @@
 import Phaser from 'phaser';
 import Joystick from '../helpers/joystick';
+import socket from '../service/socket';
 
 class GameScene extends Phaser.Scene {
     constructor() {
         super('GameScene');
     }
-
     preload() {
         this.load.image('glass', 'assets/tilemaps/tiles/Glass.png');
         this.load.image('other', 'assets/tilemaps/tiles/rock.png');
@@ -14,64 +14,130 @@ class GameScene extends Phaser.Scene {
         this.load.tilemapTiledJSON('Map2', 'assets/tilemaps/maps/Map2.json');
         this.load.spritesheet('player', 'assets/sprites/player.png', { frameWidth: 100, frameHeight: 149 });
     }
-
     create() {
+        this.handleSever();
+        console.log(socket.id);
+        this.socket = socket;
+        this.isMapSwitched = false;
         this.arrTrigger = [];
         this.arrLayer = [];
+        this.playersData = {};
+        this.players = {};
         this.player = this.matter.add.sprite(100, 100, 'player');
-        const colliderWidth = 50; // Chiều rộng collider
-        const colliderHeight = 100; // Chiều cao collider
-
-        // Tạo body cho collider
+        const colliderWidth = 50;
+        const colliderHeight = 100;
         this.player.setExistingBody(
             this.matter.add.rectangle(0, 0, colliderWidth, colliderHeight, {
                 isStatic: false,
                 label: 'player',
-                // restitution: 0.5, // Khả năng đàn hồi
-                // friction: 0.5, // Ma sát
             }),
         );
+        this.player.setScale(0.5);
 
-        // Đặt vị trí cho player
         this.loadMap('Map1', [1700, 1000]);
 
-        // Thiết lập để không cho player quay
-        this.player.setFixedRotation(); // Ngăn không cho player quay
-        this.player.setScale(0.5);
+        this.player.setFixedRotation();
+
         this.matter.world.setBounds(0, 0, this.currentMap.widthInPixels, this.currentMap.heightInPixels);
         this.cameras.main.startFollow(this.player);
         this.cameras.main.setBounds(0, 0, this.currentMap.widthInPixels, this.currentMap.heightInPixels);
 
         // Tạo các animation
         this.createAnimations();
-        this.player.setDepth(10);
+        this.player.setDepth(11);
         this.joystick = new Joystick(this, 150, 750, 70);
     }
 
+    handleSever() {
+        socket.on('newPlayer', (playersData) => {
+            Object.entries(playersData).forEach(([id, data]) => {
+                this.playersData[id] = data;
+                if (!this.players[id]) {
+                    this.handleNewPlayer(data, id);
+                }
+            });
+            console.log(this.playersData);
+        });
+        socket.on('deletePlayer', (id) => {
+            this.players[id].destroy();
+            delete this.players[id];
+            delete this.playersData[id];
+        });
+        socket.on('changePlayer', (playersData) => {
+            Object.entries(playersData).forEach(([id, data]) => {
+                this.playersData[id] = data;
+                if (!this.players[id]) {
+                    this.handleNewPlayer(data, id);
+                } else {
+                    this.players[id].anims.play(data.anim, true);
+                    this.players[id].setPosition(data.position.x, data.position.y);
+                }
+            });
+        });
+    }
+    handleNewPlayer(data, id) {
+        const pos = { x: data.position.x, y: data.position.y };
+        if (id !== socket.id) {
+            const player = this.matter.add.sprite(pos.x, pos.y, 'player');
+            const colliderWidth = 50;
+            const colliderHeight = 100;
+            player.setExistingBody(
+                this.matter.add.rectangle(0, 0, colliderWidth, colliderHeight, {
+                    isStatic: true,
+                    isSensor: true,
+                    label: 'enemy',
+                }),
+            );
+            player.setScale(0.5);
+            player.setDepth(10);
+            player.setFixedRotation();
+            // player.body.collisionFilter = {
+            //     //group: -1, // Đặt nhóm của enemy
+            //     category: 0x0002, // Mã nhóm của enemy
+            //     mask: 0x0001, // Không va chạm với nhóm player
+            // };
+            this.players[id] = player;
+        }
+    }
+    getInfoPlayer() {
+        const anim = this.player.anims.currentAnim?.key;
+        return {
+            position: { x: this.player.x, y: this.player.y },
+            anim: anim,
+        };
+    }
     update(time, delta) {
-        const speed = 0.2 * delta; // Tăng tốc độ dựa trên delta
+        const speed = 2; // * delta; // Tăng tốc độ dựa trên delta
         const direction = this.joystick.getDirection();
 
-        // Cập nhật vị trí của player dựa trên joystick
+        socket.emit('updatePlayer', this.getInfoPlayer());
+        //Cập nhật vị trí của player dựa trên joystick
+        //const info = this.getInfoPlayer();
         if (direction.x !== 0 || direction.y !== 0) {
+            //  anims.play(info.anims.currentAnim.key, true);
+            //info.anims.currentAnim.key
+
             this.player.setVelocity(speed * direction.x * 2, speed * direction.y * 2); // Nhân với 2 để tăng tốc độ
 
             // Chọn animation phù hợp dựa trên hướng di chuyển
             this.updatePlayerAnimation(direction);
         } else {
             this.player.setVelocity(0, 0);
-            this.player.anims.play('turn', true); // Khi không di chuyển, phát animation "turn"
+            this.player.anims.play('turn', true);
         }
+        //this.player2.anims.play(info.anims.currentAnim.key, true);
     }
     handleCollision(event) {
-        for (let i = 0; i < event.pairs.length; i++) {
-            const { bodyA, bodyB } = event.pairs[i];
+        event.pairs.forEach((pair) => {
+            const { bodyA, bodyB } = pair;
 
             if (bodyA.label === 'trigger' || bodyB.label === 'trigger') {
                 const triggerBody = bodyA.label === 'trigger' ? bodyA : bodyB;
+                // /console.log(triggerBody);
+
                 triggerBody.event();
             }
-        }
+        });
     }
 
     createAnimations() {
@@ -138,6 +204,7 @@ class GameScene extends Phaser.Scene {
     }
 
     loadMap(mapKey, [x, y]) {
+        this.isMapSwitched = false;
         this.currentMap = this.make.tilemap({ key: mapKey });
         const groundTiles = this.currentMap.addTilesetImage('Glass', 'glass');
         const other = this.currentMap.addTilesetImage('rock', 'other');
@@ -150,8 +217,8 @@ class GameScene extends Phaser.Scene {
             this.matter.world.convertTilemapLayer(layer);
             this.arrLayer.push(layer);
         });
+        //console.log(this.arrLayer);
 
-        //var start = this.getObjectFromLayerObject('CheckPoint', Start)[0];
         this.player.setPosition(x, y);
 
         // this.layer.forEachTile((tile) => {
@@ -170,9 +237,13 @@ class GameScene extends Phaser.Scene {
         const end = this.getObjectFromLayerObject('CheckPoint', 'ChangeMap');
         this.createTriggerFromObjLayer(end, (e) => {
             var start = this.getLayerObjectByID('CheckPoint', e.nextStep)[0];
-            setTimeout(() => {
-                this.switchMap(e.mapName, [start.x, start.y]);
-            }, 500);
+            let isMapSwitched = false;
+            if (!isMapSwitched) {
+                isMapSwitched = true; // Đánh dấu là đã gọi
+                setTimeout(() => {
+                    this.switchMap(e.mapName, [start.x, start.y]);
+                }, 500);
+            }
         });
     }
     getLayerObjectByID(layerObject, id) {
@@ -209,25 +280,35 @@ class GameScene extends Phaser.Scene {
     createTriggerFromObjLayer(objLayer, callback = () => {}) {
         objLayer.forEach((item) => {
             const rectangle = {
-                x: 400,
-                y: 300,
-                width: 50,
-                height: 50,
-                isStatic: true, // Thiết lập hình chữ nhật có thể di chuyển
-                label: 'trigger', // Đặt nhãn cho hình chữ nhật
+                x: 0,
+                y: 0,
+                width: 100,
+                height: 100,
+                isStatic: true,
+                isSensor: true,
+                label: 'trigger',
                 ...item,
             };
-            const trigger = this.matter.add.rectangle(rectangle.x, rectangle.y, rectangle.width, rectangle.height, {
-                event: () => {
-                    callback(item.properties);
+            const trigger = this.matter.add.rectangle(
+                rectangle.x + rectangle.width / 2,
+                rectangle.y + rectangle.height / 2,
+                rectangle.width,
+                rectangle.height,
+                {
+                    event: () => {
+                        if (!this.isMapSwitched) {
+                            this.isMapSwitched = true;
+                            callback(item.properties);
+                        }
+                    },
+                    isSensor: rectangle.isSensor,
+                    isStatic: rectangle.isStatic,
+                    label: rectangle.label,
+                    restitution: rectangle.restitution,
+                    friction: rectangle.friction,
+                    density: rectangle.density,
                 },
-                isSensor: true,
-                isStatic: rectangle.isStatic,
-                label: rectangle.label,
-                restitution: rectangle.restitution,
-                friction: rectangle.friction,
-                density: rectangle.density,
-            });
+            );
             this.arrTrigger.push(trigger);
         });
     }
@@ -240,9 +321,11 @@ class GameScene extends Phaser.Scene {
                 layer.destroy();
             });
         });
+
         this.arrTrigger.forEach((trigger) => {
             this.matter.world.remove(trigger);
         });
+
         this.arrLayer = [];
         this.arrTrigger = [];
         this.loadMap(newMapKey, start);

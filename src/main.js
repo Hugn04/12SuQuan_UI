@@ -2,6 +2,7 @@ import './css/style.css';
 import Phaser from 'phaser';
 import scene from './scenes';
 import { desktop, mobile, sizeDevice } from './utils/breakPoints';
+import socket from './service/socket';
 
 let sizes = {
     width: 1280,
@@ -9,13 +10,10 @@ let sizes = {
 };
 if (mobile) {
     sizes = {
-        width: 500,
-        height: 900,
+        width: 720,
+        height: 1280,
     };
 }
-
-const speedDown = 300;
-console.log(import.meta.env.VITE_SOME_SERVER);
 
 const config = {
     type: Phaser.AUTO,
@@ -34,7 +32,7 @@ const config = {
         matter: {
             gravity: { y: 0 },
             enableSleep: true,
-            debug: false,
+            debug: true,
         },
         arcade: {
             gravity: { y: 1 },
