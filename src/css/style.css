@@ -1,36 +1,62 @@
 :root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
-  --dkClr:#181818;
-  --liClr:whitesmoke;
-  --accClr:#0D0D35;
+    font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+    --dkClr: #181818;
+    --liClr: whitesmoke;
+    --accClr: #0d0d35;
 }
 
-*{
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
 }
-html, body{
-  height: 100%;
-}
-
-body{
-  background-color: var(--dkClr);
-  color: var(--liClr);
-  display: flex;
-  flex-direction: column;
-  min-height: 100vh;
+html,
+body {
+    height: 100%;
 }
 
-header, footer{
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 40px 20px;
+body {
+    background-color: var(--dkClr);
+    color: var(--liClr);
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
 }
 
-main{
-  flex: 1;
-  display: flex;
+header,
+footer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 40px 20px;
 }
 
+main {
+    flex: 1;
+    display: flex;
+}
+
+.custom-input {
+    width: 250px;
+    height: 50px;
+    background-color: white;
+    border: 2px solid black;
+    border-radius: 8px;
+    padding: 5px;
+    font-size: 16px;
+    color: black;
+}
+
+.custom-button {
+    background-color: #007bff;
+    border: none;
+    border-radius: 8px;
+    padding: 16px;
+    font-size: 16px;
+    color: white;
+    cursor: pointer;
+}
+.custom-button.link {
+    background-color: transparent;
+    text-decoration: underline;
+}

@@ -1,127 +1,65 @@
 import Phaser from 'phaser';
-
+import createInput from '../components/createInput';
+import createButton from '../components/createButton';
+import request from '../service/request';
 class LoginForm extends Phaser.Scene {
     constructor() {
-        super('LoginForm');
+        super('LoginScene');
     }
 
     preload() {
-        this.load.image('glass', 'assets/tilemaps/tiles/Glass.png');
-        this.load.tilemapTiledJSON('map', 'assets/tilemaps/maps/Map1.json');
-        this.load.tilemapTiledJSON('map2', 'assets/tilemaps/maps/Map2.json');
-
-        this.load.spritesheet('player', 'assets/sprites/player.png', { frameWidth: 100, frameHeight: 149 });
+        this.load.image('bg', 'assets/images/background.png');
+        request
+            .get('/auth')
+            .then(() => {
+                this.scene.start('GameScene');
+            })
+            .catch((err) => {});
     }
 
     create() {
-        this.loadMap('map');
+        const { width, height } = this.scale;
+        this.add.image(0, 0, 'bg').setOrigin(0);
+        this.add.text(width / 2, height / 4, 'Đăng nhập', { fontSize: '26px', fill: '#000' }).setOrigin(0.5);
 
-        this.player = this.physics.add.sprite(100, 100, 'player');
-        this.player.setCollideWorldBounds(true);
+        this.userName = createInput(this, width / 2, height / 3, { placeholder: 'Nhập tên tài khoản' });
+        this.password = createInput(this, width / 2, height / 2.6, { type: 'password', placeholder: 'Nhập mật khẩu' });
 
-        this.physics.world.setBounds(0, 0, this.currentMap.widthInPixels, this.currentMap.heightInPixels);
-        this.cameras.main.startFollow(this.player);
-        this.cameras.main.setBounds(0, 0, this.currentMap.widthInPixels, this.currentMap.heightInPixels);
-
-        this.cursors = this.input.keyboard.createCursorKeys();
-
-        this.input.keyboard.on('keydown', (e) => {
-            switch (e.key) {
-                case '1':
-                    this.switchMap('map');
-                    break;
-                case '2':
-                    this.switchMap('map2');
-                    break;
-                default:
-                    break;
-            }
+        // Tạo nút đăng nhập
+        this.loginBtn = createButton(this, width / 2, height / 2.2, {
+            onClick: () => {
+                this.handleLogin();
+            },
+            title: 'Đăng nhập',
+        });
+        this.registerBtn = createButton(this, width / 2, height / 2, {
+            classList: ['link'],
+            onClick: () => {
+                this.scene.start('RegisterScene');
+            },
+            title: 'Tôi chưa có tài khoản   ',
         });
 
-        this.anims.create({ key: 'turn', frames: [{ key: 'player', frame: 0 }], frameRate: 20 });
-        this.anims.create({
-            key: 'left',
-            frames: this.anims.generateFrameNumbers('player', { start: 8, end: 11 }),
-            frameRate: 10,
-            repeat: -1,
-        });
-        this.anims.create({
-            key: 'right',
-            frames: this.anims.generateFrameNumbers('player', { start: 12, end: 13 }),
-            frameRate: 10,
-            repeat: -1,
-        });
-        this.anims.create({
-            key: 'down',
-            frames: this.anims.generateFrameNumbers('player', { start: 0, end: 3 }),
-            frameRate: 10,
-            repeat: -1,
-        });
-        this.anims.create({
-            key: 'up',
-            frames: this.anims.generateFrameNumbers('player', { start: 4, end: 7 }),
-            frameRate: 10,
-            repeat: -1,
-        });
-        this.player.setDepth(1);
+        // Thông báo lỗi
+        this.errorMessage = this.add
+            .text(width / 2, height / 3.6, '', { fontSize: '18px', color: 'red' })
+            .setOrigin(0.5);
     }
 
-    loadMap(mapKey) {
-        this.currentMap = this.make.tilemap({ key: mapKey });
-        const groundTiles = this.currentMap.addTilesetImage('Glass', 'glass');
+    async handleLogin() {
+        const userName = this.userName.node.value;
+        const password = this.password.node.value;
+        if (!userName && !password) {
+            this.errorMessage.setText('Bắt buộc nhập tài khoản và mật khẩu !');
+        } else {
+            try {
+                const data = await request.post('/login', { userName, password });
+                await localStorage.setItem('asset_token', data.asset_token);
 
-        const layerName = this.currentMap.getLayerIndex(0).name || 'Tile Layer 1';
-        this.layer = this.currentMap.createLayer(layerName, [groundTiles]);
-        this.layer.setDepth(0);
-    }
-
-    switchMap(newMapKey) {
-        this.layer.destroy();
-        this.loadMap(newMapKey);
-    }
-
-    update(time, delta) {
-        const speed = 200;
-        let directions = [];
-
-        // Xử lý di chuyển theo phím nhấn cuối cùng
-        if (this.cursors.left.isDown) {
-            directions.push('left');
-        }
-        if (this.cursors.right.isDown) {
-            directions.push('right');
-        }
-        if (this.cursors.up.isDown) {
-            directions.push('up');
-        }
-        if (this.cursors.down.isDown) {
-            directions.push('down');
-        }
-        // console.log(directions);
-
-        directions.forEach((direction, index) => {
-            if (direction === 'left') {
-                this.player.setVelocity(-speed, 0);
+                window.location.reload();
+            } catch (error) {
+                console.log(error.response.data?.message);
             }
-            if (direction === 'right') {
-                this.player.setVelocity(speed, 0);
-            }
-            if (direction === 'up') {
-                this.player.setVelocity(0, -speed);
-            }
-            if (direction === 'down') {
-                this.player.setVelocity(0, speed);
-            }
-            // {
-            //     this.player.setVelocity(0, 0);
-            // }
-            if (index === directions.length - 1) {
-                this.player.anims.play(direction, true);
-            }
-        });
-        if (directions.length === 0) {
-            this.player.setVelocity(0, 0);
-            this.player.anims.play('turn', true);
         }
     }
 }

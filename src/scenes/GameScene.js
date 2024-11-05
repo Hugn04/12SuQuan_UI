@@ -1,12 +1,13 @@
 import Phaser from 'phaser';
 import Joystick from '../helpers/joystick';
 import { io } from 'socket.io-client';
-
-import axios from 'axios';
+import AnimatedTiles from 'phaser-animated-tiles/dist/AnimatedTiles.min.js';
+import request from '../service/request';
 
 class GameScene extends Phaser.Scene {
     constructor() {
         super('GameScene');
+        this.isDataReady = false;
     }
     preload() {
         this.load.image('glass', 'assets/tilemaps/tiles/Glass.png');
@@ -16,61 +17,76 @@ class GameScene extends Phaser.Scene {
         this.load.tilemapTiledJSON('Map1', 'assets/tilemaps/maps/Map1.json');
         this.load.tilemapTiledJSON('Map2', 'assets/tilemaps/maps/Map2.json');
         this.load.spritesheet('player', 'assets/sprites/player.png', { frameWidth: 100, frameHeight: 149 });
-    }
-    create() {
         this.socket = io(import.meta.env.VITE_SOME_SERVER);
-        this.ten = prompt('Nhập tên của bạn');
-        this.handleSever(this.socket);
-        console.log(this.socket.id);
-        this.isMapSwitched = false;
-        this.arrTrigger = [];
-        this.arrLayer = [];
-        this.playersData = {};
-        this.players = {};
-        this.player = this.matter.add.sprite(100, 100, 'player');
+        this.load.scenePlugin('animatedTiles', AnimatedTiles, 'animatedTiles', 'animatedTiles');
+    }
+    async create() {
+        try {
+            this.dataPlayer = await request.get('/data');
+            this.isDataReady = true;
+            this.handleSever(this.socket);
+            console.log(this.socket.id);
+            this.isMapSwitched = false;
+            this.arrTrigger = [];
+            this.arrLayer = [];
+            this.playersData = {};
+            this.players = {};
 
-        this.player.name = this.ten;
-        const colliderWidth = 50;
-        const colliderHeight = 100;
-        this.player.setExistingBody(
-            this.matter.add.rectangle(0, 0, colliderWidth, colliderHeight, {
-                isStatic: false,
-                label: 'player',
-            }),
-        );
-        this.player.setScale(0.5);
-        this.player.setFixedRotation();
-        this.player.setDepth(11);
+            this.player = this.matter.add.sprite(100, 100, 'player');
+            this.player.name = this.dataPlayer.userName;
+            const colliderWidth = 50;
+            const colliderHeight = 100;
+            this.player.setExistingBody(
+                this.matter.add.rectangle(0, 0, colliderWidth, colliderHeight, {
+                    isStatic: false,
+                    label: 'player',
+                }),
+            );
+            this.player.setScale(0.5);
+            this.player.setFixedRotation();
+            this.player.setDepth(11);
 
-        this.arrow = this.add.sprite(0, 0, 'arrow');
-        this.arrow.setScale(0.1);
-        // this.arrow.setFixedRotation();
-        this.arrow.setDepth(11);
-        this.arrow.setVisible(false);
-        this.constraintArrow = null;
-        this.name = this.add.text(0, 0, this.player.name);
-        this.name.setDepth(10);
-        this.name.setOrigin(0.5);
-        console.log(this.name);
+            this.arrow = this.add.sprite(0, 0, 'arrow');
+            this.arrow.setScale(0.1);
+            // this.arrow.setFixedRotation();
+            this.arrow.setDepth(11);
+            this.arrow.setVisible(false);
+            this.constraintArrow = null;
+            this.name = this.add.text(0, 0, this.player.name);
+            this.name.setDepth(10);
+            this.name.setOrigin(0.5);
 
-        this.loadMap('Map1', [1700, 1000]);
+            this.loadMap('Map1', [this.dataPlayer.position.x, this.dataPlayer.position.y]);
 
-        this.matter.world.setBounds(0, 0, this.currentMap.widthInPixels, this.currentMap.heightInPixels);
-        this.cameras.main.startFollow(this.player);
-        this.cameras.main.setBounds(0, 0, this.currentMap.widthInPixels, this.currentMap.heightInPixels);
+            this.matter.world.setBounds(0, 0, this.currentMap.widthInPixels, this.currentMap.heightInPixels);
+            this.cameras.main.startFollow(this.player);
+            this.cameras.main.setBounds(0, 0, this.currentMap.widthInPixels, this.currentMap.heightInPixels);
 
-        // Tạo các animation
-        this.createAnimations();
+            this.createAnimations();
 
-        this.joystick = new Joystick(this, 150, 750, 70);
+            this.joystick = new Joystick(this, 200, 1050, 100);
 
-        this.nearbyEnemies = [];
-        this.currentEnemy = null;
-        this.currentEnemyIndex = 0;
-        this.input.keyboard.on('keydown-V', () => {
-            if (this.nearbyEnemies.length > 0) {
-                this.currentEnemyIndex = (this.currentEnemyIndex + 1) % this.nearbyEnemies.length;
-            }
+            this.nearbyEnemies = [];
+            this.currentEnemy = null;
+            this.currentEnemyIndex = 0;
+            this.input.keyboard.on('keydown-V', () => {
+                this.scene.start('RegisterScene');
+                if (this.nearbyEnemies.length > 0) {
+                    this.currentEnemyIndex = (this.currentEnemyIndex + 1) % this.nearbyEnemies.length;
+                }
+            });
+
+            window.addEventListener('beforeunload', () => {
+                this.saveData();
+            });
+        } catch (error) {
+            this.scene.start('LoginScene');
+        }
+    }
+    saveData() {
+        request.post('/updateData', {
+            userName: this.dataPlayer.userName,
+            position: { x: this.player.x, y: this.player.y },
         });
     }
     updateArrow() {
@@ -169,26 +185,24 @@ class GameScene extends Phaser.Scene {
         };
     }
     update(time, delta) {
-        this.updateArrow();
-        const speed = 2; // * delta; // Tăng tốc độ dựa trên delta
-        const direction = this.joystick.getDirection();
+        if (this.isDataReady) {
+            this.updateArrow();
+            const speed = 2; // * delta; // Tăng tốc độ dựa trên delta
+            const direction = this.joystick.getDirection();
 
-        this.socket.emit('updatePlayer', this.getInfoPlayer());
-        //Cập nhật vị trí của player dựa trên joystick
-        this.name.setPosition(this.player.x, this.player.y - this.player.height / 4 - 10);
-        //const info = this.getInfoPlayer();
-        if (direction.x !== 0 || direction.y !== 0) {
-            //  anims.play(info.anims.currentAnim.key, true);
-            //info.anims.currentAnim.key
-            this.player.setVelocity(speed * direction.x * 2, speed * direction.y * 2); // Nhân với 2 để tăng tốc độ
+            this.socket.emit('updatePlayer', this.getInfoPlayer());
+            //Cập nhật vị trí của player dựa trên joystick
+            this.name.setPosition(this.player.x, this.player.y - this.player.height / 4 - 10);
+            if (direction.x !== 0 || direction.y !== 0) {
+                this.player.setVelocity(speed * direction.x * 2, speed * direction.y * 2); // Nhân với 2 để tăng tốc độ
 
-            // Chọn animation phù hợp dựa trên hướng di chuyển
-            this.updatePlayerAnimation(direction);
-        } else {
-            this.player.setVelocity(0, 0);
-            this.player.anims.play('turn', true);
+                // Chọn animation phù hợp dựa trên hướng di chuyển
+                this.updatePlayerAnimation(direction);
+            } else {
+                this.player.setVelocity(0, 0);
+                this.player.anims.play('turn', true);
+            }
         }
-        //this.player2.anims.play(info.anims.currentAnim.key, true);
     }
     handleCollision(event) {
         event.pairs.forEach((pair) => {
@@ -196,7 +210,6 @@ class GameScene extends Phaser.Scene {
 
             if (bodyA.label === 'trigger' || bodyB.label === 'trigger') {
                 const triggerBody = bodyA.label === 'trigger' ? bodyA : bodyB;
-                console.log(triggerBody);
 
                 triggerBody.event();
             }
@@ -284,6 +297,7 @@ class GameScene extends Phaser.Scene {
         const groundTiles = this.currentMap.addTilesetImage('Glass', 'glass');
         const other = this.currentMap.addTilesetImage('rock', 'other');
         const full = this.currentMap.addTilesetImage('full');
+
         this.currentMap.layers.forEach((layer, i) => {
             const layerName = layer.name;
             layer = this.currentMap.createLayer(layerName, [groundTiles, other, full]);
@@ -292,6 +306,7 @@ class GameScene extends Phaser.Scene {
             this.matter.world.convertTilemapLayer(layer);
             this.arrLayer.push(layer);
         });
+        this.sys.animatedTiles.init(this.currentMap);
 
         this.player.setPosition(x, y);
 
