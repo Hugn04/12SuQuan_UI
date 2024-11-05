@@ -2,7 +2,7 @@ import axios from 'axios';
 
 const request = axios.create({
     baseURL: import.meta.env.VITE_SOME_SERVER + '/api',
-    timeout: 1000,
+    timeout: 10000,
     headers: { Bearer: localStorage.getItem('asset_token') },
 });
 
