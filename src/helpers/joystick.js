@@ -68,6 +68,10 @@ class Joystick {
     getDirection() {
         return this.direction;
     }
+    destroy() {
+        this.joystickArea.destroy();
+        this.joystick.destroy();
+    }
 }
 
 export default Joystick;

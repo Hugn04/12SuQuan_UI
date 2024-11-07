@@ -59,10 +59,11 @@ class LoginForm extends Phaser.Scene {
                 request
                     .post('/register', { userName, password })
                     .then(() => {
+                        alert('Đăng ký tài khoản thành công !');
                         this.scene.start('LoginScene');
                     })
                     .catch(() => {
-                        console.log('Lỗi');
+                        alert('Đăng ký tài khoản thất bại !');
                     });
             }
         }

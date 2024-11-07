@@ -55,10 +55,10 @@ class LoginForm extends Phaser.Scene {
             try {
                 const data = await request.post('/login', { userName, password });
                 await localStorage.setItem('asset_token', data.asset_token);
-
-                window.location.reload();
+                alert('Đăng nhập thành công !');
+                this.scene.start('Game');
             } catch (error) {
-                console.log(error.response.data?.message);
+                alert(error.response.data?.message);
             }
         }
     }

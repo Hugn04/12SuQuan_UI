@@ -3,12 +3,16 @@ import axios from 'axios';
 const request = axios.create({
     baseURL: import.meta.env.VITE_SOME_SERVER + '/api',
     timeout: 10000,
-    headers: { Bearer: localStorage.getItem('asset_token') },
+    // headers: { Bearer: localStorage.getItem('asset_token') },
 });
 
 // Request Interceptor
 request.interceptors.request.use(
     (config) => {
+        const token = localStorage.getItem('asset_token');
+        if (token) {
+            config.headers['Authorization'] = `Bearer ${token}`;
+        }
         return config;
     },
     (error) => {

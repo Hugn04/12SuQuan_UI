@@ -26,7 +26,8 @@ const config = {
     width: sizes.width,
     height: sizes.height,
     parent: 'app',
-    backgroundColor: '#f3f3f3',
+    backgroundColor: '#1a1a1a',
+    //backgroundColor: '#f3f3f3',
     dom: { createContainer: true },
     scale: {
         mode: Phaser.Scale.FIT,
@@ -37,7 +38,7 @@ const config = {
         matter: {
             gravity: { y: 0 },
             enableSleep: true,
-            debug: false,
+            debug: true,
         },
         arcade: {
             gravity: { y: 1 },

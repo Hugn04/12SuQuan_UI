@@ -4,10 +4,12 @@ import { io } from 'socket.io-client';
 import AnimatedTiles from 'phaser-animated-tiles/dist/AnimatedTiles.min.js';
 import request from '../service/request';
 import createButton from '../components/createButton';
+import Player from '../core/Player';
+import Enemy from '../core/Enemy';
 
-class GameScene extends Phaser.Scene {
+class Game extends Phaser.Scene {
     constructor() {
-        super('GameScene');
+        super('Game');
         this.isDataReady = false;
     }
     preload() {
@@ -25,6 +27,7 @@ class GameScene extends Phaser.Scene {
         try {
             this.dataPlayer = await request.get('/data');
             this.isDataReady = true;
+            console.log(this.dataPlayer);
 
             console.log(this.socket.id);
             this.isMapSwitched = false;
@@ -38,19 +41,8 @@ class GameScene extends Phaser.Scene {
                     this.logout();
                 },
             }).setScrollFactor(0);
-            this.player = this.matter.add.sprite(100, 100, 'player');
-            this.player.name = this.dataPlayer.userName;
-            const colliderWidth = 50;
-            const colliderHeight = 100;
-            this.player.setExistingBody(
-                this.matter.add.rectangle(0, 0, colliderWidth, colliderHeight, {
-                    isStatic: false,
-                    label: 'player',
-                }),
-            );
-            this.player.setScale(0.5);
-            this.player.setFixedRotation();
-            this.player.setDepth(11);
+
+            this.player = new Player({ scene: this, x: 0, y: 0, name: this.dataPlayer.userName });
 
             this.arrow = this.add.sprite(0, 0, 'arrow');
             this.arrow.setScale(0.1);
@@ -58,31 +50,25 @@ class GameScene extends Phaser.Scene {
             this.arrow.setDepth(11);
             this.arrow.setVisible(false);
             this.constraintArrow = null;
-            this.name = this.add.text(0, 0, this.player.name);
-            this.name.setDepth(10);
-            this.name.setOrigin(0.5);
-
-            this.loadMap('Map1', [this.dataPlayer.position.x, this.dataPlayer.position.y]);
-
+            this.loadMap(this.dataPlayer.map, [this.dataPlayer.position.x, this.dataPlayer.position.y]);
             this.matter.world.setBounds(0, 0, this.currentMap.widthInPixels, this.currentMap.heightInPixels);
             this.cameras.main.startFollow(this.player);
             this.cameras.main.setBounds(0, 0, this.currentMap.widthInPixels, this.currentMap.heightInPixels);
-
-            this.createAnimations();
-
             this.joystick = new Joystick(this, 200, 1050, 100);
 
             this.nearbyEnemies = [];
             this.currentEnemy = null;
             this.currentEnemyIndex = 0;
             this.input.keyboard.on('keydown-V', () => {
-                this.scene.start('RegisterScene');
+                //this.scene.start('RegisterScene');
                 if (this.nearbyEnemies.length > 0) {
                     this.currentEnemyIndex = (this.currentEnemyIndex + 1) % this.nearbyEnemies.length;
                 }
             });
             this.handleSever(this.socket);
         } catch (error) {
+            console.log(error);
+
             this.scene.start('LoginScene');
         }
     }
@@ -146,12 +132,8 @@ class GameScene extends Phaser.Scene {
                         this.handleNewPlayer(data, id);
                     }
                 } else {
-                    this.players[id].body.anims.play(data.anim, true);
-                    this.players[id].body.setPosition(data.position.x, data.position.y);
-                    this.players[id].name.setPosition(
-                        this.players[id].body.x,
-                        this.players[id].body.y - this.players[id].body.height / 4 - 10,
-                    );
+                    this.players[id].anims.play(data.anim, true);
+                    this.players[id].updatePosition(data.position.x, data.position.y);
                 }
             });
         });
@@ -159,28 +141,8 @@ class GameScene extends Phaser.Scene {
     handleNewPlayer(data, id) {
         const pos = { x: data.position.x, y: data.position.y };
         if (id !== this.socket.id) {
-            const player = this.matter.add.sprite(pos.x, pos.y, 'player');
-            const name = this.add.text(pos.x, pos.y, data.name);
-            name.setDepth(10);
-            name.setOrigin(0.5);
-            const colliderWidth = 50;
-            const colliderHeight = 100;
-            player.setExistingBody(
-                this.matter.add.rectangle(0, 0, colliderWidth, colliderHeight, {
-                    isStatic: true,
-                    isSensor: true,
-                    label: 'enemy',
-                }),
-            );
-            player.setScale(0.5);
-            player.setDepth(10);
-            player.setFixedRotation();
-            // player.body.collisionFilter = {
-            //     //group: -1, // Đặt nhóm của enemy
-            //     category: 0x0002, // Mã nhóm của enemy
-            //     mask: 0x0001, // Không va chạm với nhóm player
-            // };
-            this.players[id] = { name: name, body: player };
+            const player = new Enemy({ scene: this, x: 200, y: 200, key: 'player', name: data.name });
+            this.players[id] = player;
         }
     }
     getInfoPlayer() {
@@ -201,16 +163,8 @@ class GameScene extends Phaser.Scene {
 
             this.socket.emit('updatePlayer', this.getInfoPlayer());
             //Cập nhật vị trí của player dựa trên joystick
-            this.name.setPosition(this.player.x, this.player.y - this.player.height / 4 - 10);
-            if (direction.x !== 0 || direction.y !== 0) {
-                this.player.setVelocity(speed * direction.x * 2, speed * direction.y * 2); // Nhân với 2 để tăng tốc độ
-
-                // Chọn animation phù hợp dựa trên hướng di chuyển
-                this.updatePlayerAnimation(direction);
-            } else {
-                this.player.setVelocity(0, 0);
-                this.player.anims.play('turn', true);
-            }
+            this.player.move(direction);
+            this.player.update();
         }
     }
     handleCollision(event) {
@@ -225,71 +179,9 @@ class GameScene extends Phaser.Scene {
         });
     }
 
-    createAnimations() {
-        this.anims.create({ key: 'turn', frames: [{ key: 'player', frame: 0 }], frameRate: 20 });
-        this.anims.create({
-            key: 'left',
-            frames: this.anims.generateFrameNumbers('player', { start: 8, end: 11 }),
-            frameRate: 10,
-            repeat: -1,
-        });
-        this.anims.create({
-            key: 'right',
-            frames: this.anims.generateFrameNumbers('player', { start: 12, end: 13 }),
-            frameRate: 10,
-            repeat: -1,
-        });
-        this.anims.create({
-            key: 'down',
-            frames: this.anims.generateFrameNumbers('player', { start: 0, end: 3 }),
-            frameRate: 10,
-            repeat: -1,
-        });
-        this.anims.create({
-            key: 'up',
-            frames: this.anims.generateFrameNumbers('player', { start: 4, end: 7 }),
-            frameRate: 10,
-            repeat: -1,
-        });
-    }
-
-    updatePlayerAnimation(direction) {
-        const absX = Math.abs(direction.x);
-        const absY = Math.abs(direction.y);
-
-        if (direction.x < 0) {
-            if (direction.y < 0) {
-                if (absX < absY) {
-                    this.player.anims.play('up', true);
-                } else {
-                    this.player.anims.play('left', true);
-                }
-            } else {
-                if (absX > absY) {
-                    this.player.anims.play('left', true);
-                } else {
-                    this.player.anims.play('down', true);
-                }
-            }
-        } else {
-            if (direction.y < 0) {
-                if (absX > absY) {
-                    this.player.anims.play('right', true);
-                } else {
-                    this.player.anims.play('up', true);
-                }
-            } else {
-                if (absX > absY) {
-                    this.player.anims.play('right', true);
-                } else {
-                    this.player.anims.play('down', true);
-                }
-            }
-        }
-    }
     destroyPlayer(id) {
-        this.players[id].name.destroy();
-        this.players[id].body.destroy();
+        this.players[id].destroy();
+
         delete this.players[id];
         delete this.playersData[id];
     }
@@ -436,11 +328,6 @@ class GameScene extends Phaser.Scene {
             this.player.destroy();
         }
 
-        // Xóa các players khác
-        Object.values(this.players).forEach(({ name, body }) => {
-            name.destroy();
-            body.destroy();
-        });
         this.players = {};
 
         // Xóa các lớp bản đồ
@@ -464,13 +351,10 @@ class GameScene extends Phaser.Scene {
         if (this.arrow) {
             this.arrow.destroy();
         }
-        if (this.name) {
-            this.name.destroy();
-        }
         if (this.joystick) {
             this.joystick.destroy();
         }
     }
 }
 
-export default GameScene;
+export default Game;
