@@ -8,7 +8,6 @@ class Enemy extends Phaser.GameObjects.Sprite {
         this.name = config.name;
         const colliderWidth = 50;
         const colliderHeight = 100;
-
         this.setExistingBody(
             this.scene.matter.add.rectangle(this.x, this.y, colliderWidth, colliderHeight, {
                 isStatic: true,
@@ -16,18 +15,23 @@ class Enemy extends Phaser.GameObjects.Sprite {
                 label: 'enemy',
             }),
         );
-        this.objName = this.scene.add.text(this.x, this.y - this.height / 4 - 10, this.name);
-        this.objName.setDepth(9);
-        this.objName.setOrigin(0.5);
-
         this.setFixedRotation(); // Giữ nguyên hướng không quay
         this.createAnimations();
-        this.setScale(0.5);
+        this.setScale(0.8);
         this.setDepth(9);
+
+        this.objName = this.scene.add.text(this.x, this.y, this.name, {
+            fontFamily: 'Arial',
+            fontSize: '36px',
+            color: '#fff',
+            fontStyle: 'bold',
+        });
+        this.objName.setDepth(this.depth);
+        this.objName.setOrigin(0.5);
     }
     updatePosition(x, y) {
         this.setPosition(x, y);
-        this.objName.setPosition(this.x, this.y - this.height / 4 - 10);
+        this.objName.setPosition(this.x, this.y - (this.height * this.scaleY) / 2);
     }
 
     update() {}

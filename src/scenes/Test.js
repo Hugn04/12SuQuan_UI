@@ -1,4 +1,4 @@
-import Player from '../core/Player';
+import Player from '../objects/Player';
 import Joystick from '../helpers/joystick';
 
 class Test extends Phaser.Scene {

@@ -5,29 +5,32 @@ class Player extends Phaser.GameObjects.Sprite {
         super(config.scene, config.x, config.y, config.key);
         config.scene.add.existing(this);
         this.name = config.name;
-        const colliderWidth = 50;
-        const colliderHeight = 100;
-
-        this.objName = this.scene.add.text(0, 0, this.name);
-
-        this.objName.setDepth(10);
-        this.objName.setOrigin(0.5);
         this.scene.matter.add.gameObject(this);
+        this.createAnimations();
+        this.setScale(0.8);
+        this.setDepth(11);
         this.setExistingBody(
-            this.scene.matter.add.rectangle(0, 0, colliderWidth, colliderHeight, {
+            this.scene.matter.add.circle(0, 100, (this.width * this.scale) / 3.5, {
                 isStatic: false,
                 label: 'player',
             }),
         );
+        this.setFixedRotation();
 
-        this.setFixedRotation(); // Giữ nguyên hướng không quay
-        this.createAnimations();
-        this.setScale(0.5);
-        this.setDepth(11);
+        this.setOrigin(0.5, 0.8);
+        this.objName = this.scene.add.text(0, 0, this.name, {
+            fontFamily: 'Arial',
+            fontSize: '36px',
+            color: 'red',
+            fontStyle: 'bold',
+        });
+        this.objName.setDepth(this.depth);
+        this.objName.setOrigin(0.5);
+        this.objName.setScale(this.scale);
     }
 
     update() {
-        this.objName.setPosition(this.x, this.y - this.height / 4 - 10);
+        this.objName.setPosition(this.x, this.y - this.height * this.scaleY * 0.8);
     }
 
     move(direction) {

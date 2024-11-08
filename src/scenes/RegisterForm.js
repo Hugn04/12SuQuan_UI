@@ -49,7 +49,7 @@ class LoginForm extends Phaser.Scene {
         const userName = this.userName.node.value;
         const password = this.password.node.value;
         const confirmPassword = this.confirmPassword.node.value;
-
+        this.scene.start('Game');
         if (!userName && !password && !confirmPassword) {
             this.errorMessage.setText('Bắt buộc nhập đầy đủ thông tin !');
         } else {
