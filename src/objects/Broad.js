@@ -14,7 +14,7 @@ class Broad extends Phaser.GameObjects.Container {
             this.arrBroad = config.initBoard;
         }
         this.candyRandom = 0;
-
+        this.temp = [];
         this.gridSize = { y: this.arrBroad.length, x: this.arrBroad[0].length };
         this.candies = [...this.arrBroad];
         this.selectedCandy = null;
@@ -56,7 +56,8 @@ class Broad extends Phaser.GameObjects.Container {
 
         this.veli = this.scene.add
             .rectangle(0, 0, this.gridSize.x * this.candySize, this.candySize * this.numRow, backgroundColorInt)
-            .setOrigin(0);
+            .setOrigin(0)
+            .setAlpha(0.5);
         this.add([this.veli, this.candyActive]);
 
         this.checkMatches();
@@ -69,6 +70,32 @@ class Broad extends Phaser.GameObjects.Container {
         });
         this.socket.on('getRandom', ({ arrTemp }) => {
             this.arrTemp = arrTemp;
+            // this.candies.forEach((match) => {
+            //     match.forEach((candy) => {
+            //         if (candy.row < this.numRow) {
+            //             candy.destroy();
+            //             this.candies[candy.row][candy.col] = null;
+            //         }
+            //     });
+            // });
+
+            // arrTemp.forEach((itemRow, row) => {
+            //     itemRow.forEach((type, col) => {
+            //         if (row < this.numRow) {
+            //             this.candies[row][col].destroy();
+            //             const candy = this.scene.add
+            //                 .sprite(col * this.candySize, row * this.candySize, 'candies', type)
+            //                 .setOrigin(0)
+            //                 .setScale(this.candyScale);
+            //             candy.setInteractive();
+            //             candy.candyType = type;
+            //             candy.row = row;
+            //             candy.col = col;
+            //             this.candies[row][col] = candy;
+            //             this.addAt(candy, 0);
+            //         }
+            //     });
+            // });
         });
     }
     onCandyClicked(pointer, candy) {
@@ -195,7 +222,7 @@ class Broad extends Phaser.GameObjects.Container {
                 }, 1000);
             }
 
-            if (!this.isAnimation && this.isMyTurn && window.auto && !this.socket) {
+            if (!this.isAnimation && this.isMyTurn && window.auto) {
                 console.log('Máy 2');
 
                 const swap = foundCanyMatch[foundCanyMatch.length - 1];
@@ -333,6 +360,18 @@ class Broad extends Phaser.GameObjects.Container {
                         const swap1 = (({ row, col }) => ({ row, col }))(candy1);
                         const swap2 = (({ row, col }) => ({ row, col }))(candy2);
                         const swap = [swap1, swap2];
+                        var arrCandy = [];
+                        const rows = 8;
+                        const cols = 8;
+                        for (let i = 0; i < rows * 2; i++) {
+                            arrCandy[i] = [];
+                            for (let j = 0; j < cols; j++) {
+                                arrCandy[i][j] = Phaser.Math.Between(0, 5);
+                            }
+                        }
+                        this.arrTemp = arrCandy;
+                        this.socket.emit('setRandom', { roomID: this.socket.roomID, arrTemp: this.arrTemp });
+
                         this.socket.emit('inputInGame', { swap: swap, roomID: this.socket.roomID });
                     }
                 }
@@ -371,9 +410,17 @@ class Broad extends Phaser.GameObjects.Container {
                 }
             }
             for (let row = 0; row < emptySpaces; row++) {
-                let type = Phaser.Math.Between(0, 5);
+                let type;
                 if (this.socket) {
                     type = this.arrTemp[row][col];
+                    // while (JSON.stringify(this.arrTemp) != JSON.stringify(this.temp)) {
+
+                    //     console.log(type);
+
+                    //     this.temp = this.arrTemp;
+                    // }
+                } else {
+                    type = Phaser.Math.Between(0, 5);
                 }
                 const candy = this.scene.add
                     .sprite(col * this.candySize, row * this.candySize, 'candies', type)
@@ -398,9 +445,6 @@ class Broad extends Phaser.GameObjects.Container {
                 // });
                 this.addAt(candy, 0);
             }
-        }
-        if (this.socket && this.isMyTurn) {
-            this.socket.emit('setRandom', { roomID: this.socket.roomID });
         }
 
         this.scene.time.delayedCall(800, this.checkMatches, [], this);

@@ -7,6 +7,8 @@ import createButton from '../components/createButton';
 import Player from '../objects/Player';
 import Enemy from '../objects/Enemy';
 import InfoContainer from '../objects/InfoContainer';
+import Alert from '../objects/Alert';
+import Monster from '../objects/Monster';
 
 class Game extends Phaser.Scene {
     constructor() {
@@ -17,6 +19,7 @@ class Game extends Phaser.Scene {
         this.arrLayer = [];
         this.playersData = {};
         this.players = {};
+        this.monsters = {};
         this.isComback = false;
     }
 
@@ -62,10 +65,18 @@ class Game extends Phaser.Scene {
                 scene: this,
                 x: this.cameras.main.width / 2,
                 y: 900,
+                atackMonter: (monster) => {
+                    this.isDataReady = false;
+                    this.isComback = false;
+                    const data = { self: this.dataPlayer, other: { ...monster, userName: monster.name } };
+                    this.clearAllObjects();
+                    this.scene.start('GamePlay', { data, socket: this.socket });
+                },
             });
             this.info.setVisible(false);
             this.handleSever(this.socket);
             this.isDataReady = true;
+            this.isQuestion = false;
         } catch (error) {
             console.log(error);
 
@@ -96,15 +107,21 @@ class Game extends Phaser.Scene {
         !this.isComback && socket.emit('newPlayer', this.getInfoPlayer());
 
         socket.on('receiveInvite', ({ from, roomID, name, data, status }) => {
-            const accept = confirm(`Bạn có chấp nhận lời mời từ ${from} không?`);
-            if (accept) {
-                this.socket.isMyTurn = true;
-                socket.emit('acceptInvite', {
-                    from,
-                    roomID,
-                    data: { [from]: data, [socket.id]: this.dataPlayer },
-                });
-            }
+            const alert = new Alert(
+                this,
+                `Bạn có chấp nhận lời mời từ ${name} không?`,
+                () => {
+                    this.socket.isMyTurn = true;
+                    socket.emit('acceptInvite', {
+                        from,
+                        roomID,
+                        data: { [from]: data, [socket.id]: this.dataPlayer },
+                    });
+                },
+                () => {
+                    console.log('Canceled!');
+                },
+            );
         });
         socket.on('GameStart', ({ data, roomID, board }) => {
             this.clearAllObjects();
@@ -113,7 +130,21 @@ class Game extends Phaser.Scene {
             this.isComback = false;
             this.scene.start('GamePlay', { data, socket: this.socket, board: board });
         });
-
+        socket.on('updateMonters', ({ monsters }) => {
+            monsters.forEach((monster, id) => {
+                if (!this.monsters[id]) {
+                    this.monsters[id] = new Monster({
+                        scene: this,
+                        x: monster.position.x,
+                        y: monster.position.y,
+                        key: 'player',
+                        name: monster.name,
+                    });
+                } else {
+                    this.monsters[id].updatePosition(monster.position.x + 100, monster.position.y);
+                }
+            });
+        });
         socket.on('dbAccount', () => {
             this.logout();
             alert('Tài khoản của bạn hiện đang đăng nhập ở thiết bị khác !');
@@ -311,8 +342,15 @@ class Game extends Phaser.Scene {
     }
 
     clearAllObjects() {
+        Object.entries(this.players).forEach(([id]) => {
+            this.destroyPlayer(id);
+        });
+        Object.entries(this.monsters).forEach(([id, monster]) => {
+            monster.destroy();
+        });
         this.player.destroy();
         this.players = {};
+        this.monsters = {};
         this.arrLayer.forEach((layer) => {
             layer.forEachTile((tile) => {
                 if (tile.physics && tile.physics.matterBody) {

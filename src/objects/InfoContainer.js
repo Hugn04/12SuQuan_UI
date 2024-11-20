@@ -62,11 +62,15 @@ class InfoContainer extends Phaser.GameObjects.Container {
         });
 
         this.btnFight.on('pointerdown', () => {
-            this.scene.socket.emit('invitePlayer', {
-                invitedPlayerID: this.currentEnemy.id,
-                data: this.scene.dataPlayer,
-                status: 0,
-            });
+            if (this.currentEnemy.typeObject == 'player') {
+                this.scene.socket.emit('invitePlayer', {
+                    invitedPlayerID: this.currentEnemy.id,
+                    data: this.scene.dataPlayer,
+                    status: 0,
+                });
+            } else {
+                config.atackMonter(this.currentEnemy);
+            }
         });
         this.add([this.background, this.name, this.btnChange, this.btnFight, this.level]);
         this.setScrollFactor(0);

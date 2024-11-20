@@ -1,12 +1,12 @@
 import Phaser from 'phaser';
 
-class Enemy extends Phaser.GameObjects.Sprite {
+class Monster extends Phaser.GameObjects.Sprite {
     constructor(config) {
         super(config.scene, config.x, config.y, config.key);
         config.scene.add.existing(this);
         this.scene.matter.add.gameObject(this);
         this.name = config.name;
-        this.typeObject = 'player';
+
         const colliderWidth = 50;
         const colliderHeight = 100;
         this.setExistingBody(
@@ -78,4 +78,4 @@ class Enemy extends Phaser.GameObjects.Sprite {
     }
 }
 
-export default Enemy;
+export default Monster;
