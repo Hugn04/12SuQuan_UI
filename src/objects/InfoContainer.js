@@ -62,8 +62,8 @@ class InfoContainer extends Phaser.GameObjects.Container {
         });
 
         this.btnFight.on('pointerdown', () => {
-            this.scene.socket.emit('inviteChallenge', {
-                id: this.currentEnemy.id,
+            this.scene.socket.emit('invitePlayer', {
+                invitedPlayerID: this.currentEnemy.id,
                 data: this.scene.dataPlayer,
                 status: 0,
             });

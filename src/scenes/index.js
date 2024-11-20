@@ -6,6 +6,6 @@ import MenuScene from './MenuSence';
 import RegisterForm from './RegisterForm';
 import Test from './Test';
 
-const scene = [MenuScene, Test, Game, LoginForm, GamePlay, RegisterForm];
+const scene = [Game, GamePlay, Test, MenuScene, LoginForm, RegisterForm];
 
 export default scene;

@@ -22,7 +22,7 @@ class Enemy extends Phaser.GameObjects.Sprite {
 
         this.objName = this.scene.add.text(this.x, this.y, this.name, {
             fontFamily: 'Arial',
-            fontSize: '36px',
+            fontSize: '24px',
             color: '#fff',
             fontStyle: 'bold',
         });
@@ -69,8 +69,9 @@ class Enemy extends Phaser.GameObjects.Sprite {
     }
     destroy() {
         this.setActive(false);
-
-        this.objName.destroy();
+        if (this.objName) {
+            this.objName.destroy();
+        }
 
         super.destroy();
     }

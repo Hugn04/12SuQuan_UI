@@ -4,7 +4,17 @@ class Broad extends Phaser.GameObjects.Container {
     constructor(config) {
         super(config.scene, config.x, config.y);
         config.scene.add.existing(this);
-        this.arrBroad = config.initBoard;
+        this.socket = config.socket;
+        this.isMyTurn = true;
+        if (this.socket) {
+            this.handleServer();
+            this.arrBroad = config.initBoard.current;
+            this.arrTemp = config.initBoard.temp;
+        } else {
+            this.arrBroad = config.initBoard;
+        }
+        this.candyRandom = 0;
+
         this.gridSize = { y: this.arrBroad.length, x: this.arrBroad[0].length };
         this.candies = [...this.arrBroad];
         this.selectedCandy = null;
@@ -14,7 +24,6 @@ class Broad extends Phaser.GameObjects.Container {
         this.smoot = 400;
         this.numRow = this.arrBroad.length / 2;
 
-        this.isMyTurn = true;
         this.isAnimation = false;
         this.arrBroad.forEach((itemRow, row) => {
             itemRow.forEach((type, col) => {
@@ -49,7 +58,18 @@ class Broad extends Phaser.GameObjects.Container {
             .rectangle(0, 0, this.gridSize.x * this.candySize, this.candySize * this.numRow, backgroundColorInt)
             .setOrigin(0);
         this.add([this.veli, this.candyActive]);
+
         this.checkMatches();
+    }
+    handleServer() {
+        this.isMyTurn = !!this.socket.isMyTurn;
+        this.socket.on('updateInGame', ({ swap }) => {
+            this.swapCandies(swap[0], swap[1]);
+            this.isMyTurn = true;
+        });
+        this.socket.on('getRandom', ({ arrTemp }) => {
+            this.arrTemp = arrTemp;
+        });
     }
     onCandyClicked(pointer, candy) {
         if (!this.isAnimation && candy.row >= this.numRow && this.isMyTurn) {
@@ -166,20 +186,20 @@ class Broad extends Phaser.GameObjects.Container {
                     foundCanyMatch = this.canSwapAndMatch();
                 }
             }
-            if (!this.isAnimation && !this.isMyTurn) {
+            if (!this.isAnimation && !this.isMyTurn && !this.socket) {
                 console.log('Máy 1');
-
-                const swap = foundCanyMatch[foundCanyMatch.length - 1];
+                const swap = foundCanyMatch[Phaser.Math.Between(0, foundCanyMatch.length - 1)];
                 setTimeout(() => {
                     this.swapCandies(swap[0], swap[1]);
                     this.isMyTurn = true;
                 }, 1000);
             }
 
-            if (!this.isAnimation && this.isMyTurn && window.auto) {
+            if (!this.isAnimation && this.isMyTurn && window.auto && !this.socket) {
                 console.log('Máy 2');
 
                 const swap = foundCanyMatch[foundCanyMatch.length - 1];
+
                 setTimeout(() => {
                     this.swapCandies(swap[0], swap[1]);
                     this.isMyTurn = false;
@@ -308,6 +328,14 @@ class Broad extends Phaser.GameObjects.Container {
                     this.isMyTurn = true;
                     return;
                 }
+                if (!this.isMyTurn) {
+                    if (this.socket) {
+                        const swap1 = (({ row, col }) => ({ row, col }))(candy1);
+                        const swap2 = (({ row, col }) => ({ row, col }))(candy2);
+                        const swap = [swap1, swap2];
+                        this.socket.emit('inputInGame', { swap: swap, roomID: this.socket.roomID });
+                    }
+                }
 
                 this.checkMatches();
             },
@@ -343,7 +371,10 @@ class Broad extends Phaser.GameObjects.Container {
                 }
             }
             for (let row = 0; row < emptySpaces; row++) {
-                const type = Phaser.Math.Between(0, 5);
+                let type = Phaser.Math.Between(0, 5);
+                if (this.socket) {
+                    type = this.arrTemp[row][col];
+                }
                 const candy = this.scene.add
                     .sprite(col * this.candySize, row * this.candySize, 'candies', type)
                     .setOrigin(0)
@@ -354,20 +385,24 @@ class Broad extends Phaser.GameObjects.Container {
                 candy.row = row;
                 candy.col = col;
                 this.candies[row][col] = candy;
-                this.scene.tweens.add({
-                    targets: candy,
-                    y: candy.row * this.candySize,
-                    duration: this.smoot,
-                    onStart: () => {
-                        this.isAnimation = true;
-                    },
-                    onComplete: () => {
-                        this.isAnimation = false;
-                    },
-                });
+                // this.scene.tweens.add({
+                //     targets: candy,
+                //     y: candy.row * this.candySize,
+                //     duration: this.smoot,
+                //     onStart: () => {
+                //         this.isAnimation = true;
+                //     },
+                //     onComplete: () => {
+                //         this.isAnimation = false;
+                //     },
+                // });
                 this.addAt(candy, 0);
             }
         }
+        if (this.socket && this.isMyTurn) {
+            this.socket.emit('setRandom', { roomID: this.socket.roomID });
+        }
+
         this.scene.time.delayedCall(800, this.checkMatches, [], this);
     }
     static preload(scene) {

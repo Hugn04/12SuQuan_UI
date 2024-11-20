@@ -95,26 +95,25 @@ class Game extends Phaser.Scene {
     handleSever(socket) {
         !this.isComback && socket.emit('newPlayer', this.getInfoPlayer());
 
-        socket.on('accecptChallenge', ({ id, name, data, status }) => {
-            if (status == 0) {
-                alert(`${name} muốn thách đấu với bạn`);
-                this.clearAllObjects();
-                this.isDataReady = false;
-                this.isComback = false;
-                this.scene.start('GamePlay', { self: this.dataPlayer, other: data, socket: this.socket });
-                this.socket.emit('inviteChallenge', {
-                    id: id,
-                    data: this.dataPlayer,
-                    status: 1,
+        socket.on('receiveInvite', ({ from, roomID, name, data, status }) => {
+            const accept = confirm(`Bạn có chấp nhận lời mời từ ${from} không?`);
+            if (accept) {
+                this.socket.isMyTurn = true;
+                socket.emit('acceptInvite', {
+                    from,
+                    roomID,
+                    data: { [from]: data, [socket.id]: this.dataPlayer },
                 });
-            } else if (status == 1) {
-                alert(`${name} chấp nhận lời mời`);
-                this.clearAllObjects();
-                this.isDataReady = false;
-                this.isComback = false;
-                this.scene.start('GamePlay', { self: this.dataPlayer, other: data, socket: this.socket });
             }
         });
+        socket.on('GameStart', ({ data, roomID, board }) => {
+            this.clearAllObjects();
+            this.socket.roomID = roomID;
+            this.isDataReady = false;
+            this.isComback = false;
+            this.scene.start('GamePlay', { data, socket: this.socket, board: board });
+        });
+
         socket.on('dbAccount', () => {
             this.logout();
             alert('Tài khoản của bạn hiện đang đăng nhập ở thiết bị khác !');

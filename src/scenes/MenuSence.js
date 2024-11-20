@@ -12,11 +12,11 @@ class MenuScene extends Scene {
 
     create() {
         this.arrCandy = [];
-        const rows = 20;
+        const rows = 8;
         const cols = 8;
 
         // Tạo mảng ngẫu nhiên
-        for (let i = 0; i < rows; i++) {
+        for (let i = 0; i < rows * 2; i++) {
             this.arrCandy[i] = [];
             for (let j = 0; j < cols; j++) {
                 this.arrCandy[i][j] = Phaser.Math.Between(0, 5);
