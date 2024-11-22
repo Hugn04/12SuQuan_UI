@@ -10,21 +10,18 @@ class GamePlay extends Phaser.Scene {
         super('GamePlay');
     }
     init({ data, socket, board }) {
-        console.log(board);
-
         if (board) {
             this.socket = socket;
             const { [socket.id]: self, ...otherObj } = data;
             const other = Object.values(otherObj)[0];
             this.arrCandy = board;
-
             this.self = self;
             this.other = other;
         } else {
             this.socketTemp = socket;
             var arrCandy = [];
-            const rows = 8;
-            const cols = 8;
+            const rows = 4;
+            const cols = 4;
 
             for (let i = 0; i < rows * 2; i++) {
                 arrCandy[i] = [];
@@ -50,8 +47,10 @@ class GamePlay extends Phaser.Scene {
                 if (this.socket) {
                     this.socket.emit('leaveRoom', { roomID: this.socket.roomID });
                     this.scene.start('Game', { socket: this.socket });
+                    this.clearAllObjects();
                 } else {
                     this.scene.start('Game', { socket: this.socketTemp });
+                    this.clearAllObjects();
                 }
             },
         });
@@ -62,9 +61,11 @@ class GamePlay extends Phaser.Scene {
                     'Đối thủ của bạn đã bỏ chạy !',
                     () => {
                         this.scene.start('Game', { socket: this.socket });
+                        this.clearAllObjects();
                     },
                     () => {
                         this.scene.start('Game', { socket: this.socket });
+                        this.clearAllObjects();
                     },
                 );
             });
@@ -85,6 +86,13 @@ class GamePlay extends Phaser.Scene {
     update() {
         this.player.update();
         this.other.update();
+    }
+
+    clearAllObjects() {
+        this.broad.destroy();
+        this.player.destroy();
+        this.other.destroy();
+        this.socket = null;
     }
 }
 

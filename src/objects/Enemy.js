@@ -4,7 +4,11 @@ class Enemy extends Phaser.GameObjects.Sprite {
     constructor(config) {
         super(config.scene, config.x, config.y, config.key);
         config.scene.add.existing(this);
-        this.scene.matter.add.gameObject(this);
+        if (this.scene.matter) {
+            this.scene.matter.add.gameObject(this);
+        } else {
+            console.error('Matter.js chưa được cấu hình trong Scene.');
+        }
         this.name = config.name;
         this.typeObject = 'player';
         const colliderWidth = 50;

@@ -21,6 +21,7 @@ class Game extends Phaser.Scene {
         this.players = {};
         this.monsters = {};
         this.isComback = false;
+        this.isMainScene = true;
     }
 
     init({ socket }) {
@@ -131,19 +132,21 @@ class Game extends Phaser.Scene {
             this.scene.start('GamePlay', { data, socket: this.socket, board: board });
         });
         socket.on('updateMonters', ({ monsters }) => {
-            monsters.forEach((monster, id) => {
-                if (!this.monsters[id]) {
-                    this.monsters[id] = new Monster({
-                        scene: this,
-                        x: monster.position.x,
-                        y: monster.position.y,
-                        key: 'player',
-                        name: monster.name,
-                    });
-                } else {
-                    this.monsters[id].updatePosition(monster.position.x + 100, monster.position.y);
-                }
-            });
+            if (this.isMainScene) {
+                monsters.forEach((monster, id) => {
+                    if (!this.monsters[id]) {
+                        this.monsters[id] = new Monster({
+                            scene: this,
+                            x: monster.position.x,
+                            y: monster.position.y,
+                            key: 'player',
+                            name: monster.name,
+                        });
+                    } else {
+                        this.monsters[id].updatePosition(monster.position.x + 100, monster.position.y);
+                    }
+                });
+            }
         });
         socket.on('dbAccount', () => {
             this.logout();
@@ -153,18 +156,20 @@ class Game extends Phaser.Scene {
             this.destroyPlayer(id);
         });
         socket.on('changePlayer', (playersData) => {
-            Object.entries(playersData).forEach(([id, data]) => {
-                this.playersData[id] = data;
+            if (this.isMainScene) {
+                Object.entries(playersData).forEach(([id, data]) => {
+                    this.playersData[id] = data;
 
-                if (!this.players[id]) {
-                    if (this.playersData[id].map === this.player.map) {
-                        this.handleNewPlayer(data, id);
+                    if (!this.players[id]) {
+                        if (this.playersData[id].map === this.player.map) {
+                            this.handleNewPlayer(data, id);
+                        }
+                    } else {
+                        this.players[id].anims.play(data.anim || 'turn', true);
+                        this.players[id].updatePosition(data.position.x, data.position.y);
                     }
-                } else {
-                    this.players[id].anims.play(data.anim || 'turn', true);
-                    this.players[id].updatePosition(data.position.x, data.position.y);
-                }
-            });
+                });
+            }
         });
     }
     handleNewPlayer(data, id) {
@@ -359,6 +364,12 @@ class Game extends Phaser.Scene {
                 layer.destroy();
             });
         });
+        this.socket.off('receiveInvite');
+        this.socket.off('GameStart');
+        this.socket.off('updateMonters');
+        this.socket.off('dbAccount');
+        this.socket.off('deletePlayer');
+        this.socket.off('changePlayer');
         this.arrLayer = [];
         this.info.destroy();
         this.arrTrigger.forEach((trigger) => {

@@ -8,15 +8,12 @@ class Broad extends Phaser.GameObjects.Container {
         this.isMyTurn = true;
         if (this.socket) {
             this.handleServer();
-            this.arrBroad = config.initBoard.current;
-            this.arrTemp = config.initBoard.temp;
-        } else {
-            this.arrBroad = config.initBoard;
         }
-        this.candyRandom = 0;
-        this.temp = [];
+        this.arrBroad = config.initBoard.slice();
+        this.temp = 0;
+        this.arrRandom = this.arrBroad.slice();
         this.gridSize = { y: this.arrBroad.length, x: this.arrBroad[0].length };
-        this.candies = [...this.arrBroad];
+        this.candies = JSON.parse(JSON.stringify(this.arrBroad));
         this.selectedCandy = null;
         this.score = 0;
         this.candyScale = 0.7;
@@ -39,6 +36,15 @@ class Broad extends Phaser.GameObjects.Container {
                 this.add(candy);
             });
         });
+        this.scene.input.keyboard.on('keydown', async (event) => {
+            if (event.key === 'd') {
+                this.socket.emit('setRandom', { roomID: this.socket.roomID });
+            } else if (event.key === 'r') {
+                this.syncCandy(config.initBoard);
+            }
+
+            console.log('đã change');
+        });
         window.auto = false;
         this.setSize(this.candySize * this.gridSize.x, this.candySize * this.gridSize.y);
         this.setPosition(config.x - this.width / 2, config.y - this.height / 2 - this.height / 4);
@@ -56,47 +62,24 @@ class Broad extends Phaser.GameObjects.Container {
 
         this.veli = this.scene.add
             .rectangle(0, 0, this.gridSize.x * this.candySize, this.candySize * this.numRow, backgroundColorInt)
-            .setOrigin(0)
-            .setAlpha(0.5);
+            .setOrigin(0);
+        // .setAlpha(0.5); // Bỏ comment để dev
         this.add([this.veli, this.candyActive]);
 
         this.checkMatches();
     }
+    updateIngameSocket({ swap }) {
+        this.swapCandies(swap[0], swap[1]);
+        this.isMyTurn = true;
+    }
+    async getRandomSocket({ arrRandom }) {
+        this.arrBroad = arrRandom.slice();
+        await this.waitForChange();
+    }
     handleServer() {
         this.isMyTurn = !!this.socket.isMyTurn;
-        this.socket.on('updateInGame', ({ swap }) => {
-            this.swapCandies(swap[0], swap[1]);
-            this.isMyTurn = true;
-        });
-        this.socket.on('getRandom', ({ arrTemp }) => {
-            this.arrTemp = arrTemp;
-            // this.candies.forEach((match) => {
-            //     match.forEach((candy) => {
-            //         if (candy.row < this.numRow) {
-            //             candy.destroy();
-            //             this.candies[candy.row][candy.col] = null;
-            //         }
-            //     });
-            // });
-
-            // arrTemp.forEach((itemRow, row) => {
-            //     itemRow.forEach((type, col) => {
-            //         if (row < this.numRow) {
-            //             this.candies[row][col].destroy();
-            //             const candy = this.scene.add
-            //                 .sprite(col * this.candySize, row * this.candySize, 'candies', type)
-            //                 .setOrigin(0)
-            //                 .setScale(this.candyScale);
-            //             candy.setInteractive();
-            //             candy.candyType = type;
-            //             candy.row = row;
-            //             candy.col = col;
-            //             this.candies[row][col] = candy;
-            //             this.addAt(candy, 0);
-            //         }
-            //     });
-            // });
-        });
+        this.socket.on('updateInGame', this.updateIngameSocket.bind(this));
+        this.socket.on('getRandom', this.getRandomSocket.bind(this));
     }
     onCandyClicked(pointer, candy) {
         if (!this.isAnimation && candy.row >= this.numRow && this.isMyTurn) {
@@ -135,6 +118,25 @@ class Broad extends Phaser.GameObjects.Container {
         });
         this.refillCandies();
     }
+    syncCandy(broad) {
+        const copyBroad = broad.slice();
+        copyBroad.forEach((itemRow, row) => {
+            itemRow.forEach((type, col) => {
+                this.candies[row][col].destroy();
+                const candy = this.scene.add
+                    .sprite(col * this.candySize, row * this.candySize, 'candies', type)
+                    .setOrigin(0)
+                    .setScale(this.candyScale);
+                candy.setInteractive();
+                candy.candyType = type;
+                candy.row = row;
+                candy.col = col;
+                this.candies[row][col] = candy;
+                this.addAt(candy, 0);
+            });
+        });
+    }
+
     findMatches() {
         const grid = this.candies;
         const matches = [];
@@ -360,17 +362,6 @@ class Broad extends Phaser.GameObjects.Container {
                         const swap1 = (({ row, col }) => ({ row, col }))(candy1);
                         const swap2 = (({ row, col }) => ({ row, col }))(candy2);
                         const swap = [swap1, swap2];
-                        var arrCandy = [];
-                        const rows = 8;
-                        const cols = 8;
-                        for (let i = 0; i < rows * 2; i++) {
-                            arrCandy[i] = [];
-                            for (let j = 0; j < cols; j++) {
-                                arrCandy[i][j] = Phaser.Math.Between(0, 5);
-                            }
-                        }
-                        this.arrTemp = arrCandy;
-                        this.socket.emit('setRandom', { roomID: this.socket.roomID, arrTemp: this.arrTemp });
 
                         this.socket.emit('inputInGame', { swap: swap, roomID: this.socket.roomID });
                     }
@@ -391,7 +382,7 @@ class Broad extends Phaser.GameObjects.Container {
         });
     }
 
-    refillCandies() {
+    async refillCandies() {
         for (let col = 0; col < this.gridSize.x; col++) {
             let emptySpaces = 0;
             for (let row = this.gridSize.y - 1; row >= 0; row--) {
@@ -406,22 +397,17 @@ class Broad extends Phaser.GameObjects.Container {
                         targets: this.candies[row + emptySpaces][col],
                         y: (row + emptySpaces) * this.candySize,
                         duration: this.smoot,
+                        onStart: () => {
+                            this.isAnimation = true;
+                        },
+                        onComplete: () => {
+                            this.isAnimation = false;
+                        },
                     });
                 }
             }
             for (let row = 0; row < emptySpaces; row++) {
-                let type;
-                if (this.socket) {
-                    type = this.arrTemp[row][col];
-                    // while (JSON.stringify(this.arrTemp) != JSON.stringify(this.temp)) {
-
-                    //     console.log(type);
-
-                    //     this.temp = this.arrTemp;
-                    // }
-                } else {
-                    type = Phaser.Math.Between(0, 5);
-                }
+                let type = Phaser.Math.Between(0, 5);
                 const candy = this.scene.add
                     .sprite(col * this.candySize, row * this.candySize, 'candies', type)
                     .setOrigin(0)
@@ -432,28 +418,61 @@ class Broad extends Phaser.GameObjects.Container {
                 candy.row = row;
                 candy.col = col;
                 this.candies[row][col] = candy;
-                // this.scene.tweens.add({
-                //     targets: candy,
-                //     y: candy.row * this.candySize,
-                //     duration: this.smoot,
-                //     onStart: () => {
-                //         this.isAnimation = true;
-                //     },
-                //     onComplete: () => {
-                //         this.isAnimation = false;
-                //     },
-                // });
+                this.scene.tweens.add({
+                    targets: candy,
+                    y: candy.row * this.candySize,
+                    duration: this.smoot,
+                    onStart: () => {
+                        this.isAnimation = true;
+                    },
+                    onComplete: () => {
+                        this.isAnimation = false;
+                    },
+                });
+
                 this.addAt(candy, 0);
             }
         }
+        if (this.socket && this.isMyTurn) {
+            this.socket.emit('setRandom', { roomID: this.socket.roomID });
+        }
 
         this.scene.time.delayedCall(800, this.checkMatches, [], this);
+    }
+    waitForChange() {
+        return new Promise((resolve) => {
+            const checkChange = () => {
+                if (JSON.stringify(this.arrRandom) !== JSON.stringify(this.arrBroad)) {
+                    this.arrRandom = this.arrBroad.slice();
+                    this.syncCandy(this.arrRandom);
+                    resolve();
+                } else {
+                    setTimeout(checkChange, 50); // Kiểm tra lại sau 50ms
+                }
+            };
+            checkChange();
+        });
     }
     static preload(scene) {
         scene.load.spritesheet('candies', 'assets/sprites/candy.jpeg', {
             frameWidth: Broad.candySize,
             frameHeight: Broad.candySize,
         });
+    }
+    destroy() {
+        this.candies.forEach((itemRow, row) => {
+            itemRow.forEach((candy, col) => {
+                candy.destroy();
+            });
+        });
+        if (this.socket) {
+            this.socket.off('updateInGame', this.updateIngameSocket);
+            this.socket.off('getRandom', this.getRandomSocket);
+            this.socket = null;
+        }
+        this.isMyTurn = true;
+        this.veli.destroy();
+        super.destroy();
     }
 }
 
