@@ -20,8 +20,8 @@ class GamePlay extends Phaser.Scene {
         } else {
             this.socketTemp = socket;
             var arrCandy = [];
-            const rows = 4;
-            const cols = 4;
+            const rows = 8;
+            const cols = 8;
 
             for (let i = 0; i < rows * 2; i++) {
                 arrCandy[i] = [];

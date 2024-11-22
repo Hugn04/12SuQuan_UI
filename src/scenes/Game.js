@@ -124,7 +124,8 @@ class Game extends Phaser.Scene {
                 },
             );
         });
-        socket.on('GameStart', ({ data, roomID, board }) => {
+        socket.on('GameStart', async ({ data, roomID, board }) => {
+            await request.post('/updateData', this.getInfoPlayer());
             this.clearAllObjects();
             this.socket.roomID = roomID;
             this.isDataReady = false;

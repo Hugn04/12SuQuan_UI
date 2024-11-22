@@ -9,6 +9,7 @@ class Broad extends Phaser.GameObjects.Container {
         if (this.socket) {
             this.handleServer();
         }
+        this.isFirst = true;
         this.arrBroad = config.initBoard.slice();
         this.temp = 0;
         this.arrRandom = this.arrBroad.slice();
@@ -68,18 +69,17 @@ class Broad extends Phaser.GameObjects.Container {
 
         this.checkMatches();
     }
-    updateIngameSocket({ swap }) {
-        this.swapCandies(swap[0], swap[1]);
-        this.isMyTurn = true;
-    }
-    async getRandomSocket({ arrRandom }) {
-        this.arrBroad = arrRandom.slice();
-        await this.waitForChange();
-    }
+
     handleServer() {
         this.isMyTurn = !!this.socket.isMyTurn;
-        this.socket.on('updateInGame', this.updateIngameSocket.bind(this));
-        this.socket.on('getRandom', this.getRandomSocket.bind(this));
+        this.socket.on('updateInGame', ({ swap }) => {
+            this.swapCandies(swap[0], swap[1]);
+            this.isMyTurn = true;
+        });
+        this.socket.on('getRandom', async ({ arrRandom }) => {
+            this.arrBroad = arrRandom.slice();
+            await this.waitForChange();
+        });
     }
     onCandyClicked(pointer, candy) {
         if (!this.isAnimation && candy.row >= this.numRow && this.isMyTurn) {
@@ -94,6 +94,7 @@ class Broad extends Phaser.GameObjects.Container {
                 if (this.handleCheckNear(this.selectedCandy, candy)) {
                     this.isMyTurn = false;
                     this.swapCandies(this.selectedCandy, candy);
+                    this.isFirst = false;
                     this.selectedCandy = null;
                 }
             }
@@ -433,7 +434,7 @@ class Broad extends Phaser.GameObjects.Container {
                 this.addAt(candy, 0);
             }
         }
-        if (this.socket && this.isMyTurn) {
+        if (this.socket && this.isMyTurn && !this.isFirst) {
             this.socket.emit('setRandom', { roomID: this.socket.roomID });
         }
 
@@ -466,8 +467,8 @@ class Broad extends Phaser.GameObjects.Container {
             });
         });
         if (this.socket) {
-            this.socket.off('updateInGame', this.updateIngameSocket);
-            this.socket.off('getRandom', this.getRandomSocket);
+            this.socket.off('updateInGame');
+            this.socket.off('getRandom');
             this.socket = null;
         }
         this.isMyTurn = true;
