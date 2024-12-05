@@ -11,8 +11,8 @@ import request from './service/request';
 //     })
 //     .catch();
 let sizes = {
-    width: 1280,
-    height: 720,
+    width: 720,
+    height: 1280,
 };
 if (mobile) {
     sizes = {

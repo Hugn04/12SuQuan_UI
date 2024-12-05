@@ -63,8 +63,8 @@ class Broad extends Phaser.GameObjects.Container {
 
         this.veli = this.scene.add
             .rectangle(0, 0, this.gridSize.x * this.candySize, this.candySize * this.numRow, backgroundColorInt)
-            .setOrigin(0);
-        // .setAlpha(0.5); // Bỏ comment để dev
+            .setOrigin(0)
+            .setAlpha(0.5); // Bỏ comment để dev
         this.add([this.veli, this.candyActive]);
 
         this.checkMatches();
@@ -79,6 +79,8 @@ class Broad extends Phaser.GameObjects.Container {
         this.socket.on('getRandom', async ({ arrRandom }) => {
             this.arrBroad = arrRandom.slice();
             await this.waitForChange();
+            let matches = this.findMatches();
+            this.handleMatches(matches);
         });
     }
     onCandyClicked(pointer, candy) {
@@ -207,6 +209,9 @@ class Broad extends Phaser.GameObjects.Container {
         let matches = this.findMatches();
         if (matches.length > 0) {
             this.handleMatches(matches);
+            if (this.socket && this.isMyTurn && !this.isFirst) {
+                this.socket.emit('setRandom', { roomID: this.socket.roomID });
+            }
         } else {
             let foundCanyMatch = this.canSwapAndMatch();
 
@@ -237,14 +242,13 @@ class Broad extends Phaser.GameObjects.Container {
             }
         }
     }
-    handleMatches(matches) {
+    async handleMatches(matches) {
         matches.forEach((match) => {
             match.forEach((candy) => {
                 candy.destroy();
                 this.candies[candy.row][candy.col] = null;
             });
         });
-
         this.refillCandies();
     }
     canSwapAndMatch() {
@@ -383,7 +387,7 @@ class Broad extends Phaser.GameObjects.Container {
         });
     }
 
-    async refillCandies() {
+    refillCandies() {
         for (let col = 0; col < this.gridSize.x; col++) {
             let emptySpaces = 0;
             for (let row = this.gridSize.y - 1; row >= 0; row--) {
@@ -434,9 +438,6 @@ class Broad extends Phaser.GameObjects.Container {
                 this.addAt(candy, 0);
             }
         }
-        if (this.socket && this.isMyTurn && !this.isFirst) {
-            this.socket.emit('setRandom', { roomID: this.socket.roomID });
-        }
 
         this.scene.time.delayedCall(800, this.checkMatches, [], this);
     }
@@ -448,7 +449,7 @@ class Broad extends Phaser.GameObjects.Container {
                     this.syncCandy(this.arrRandom);
                     resolve();
                 } else {
-                    setTimeout(checkChange, 50); // Kiểm tra lại sau 50ms
+                    setTimeout(checkChange, 50);
                 }
             };
             checkChange();

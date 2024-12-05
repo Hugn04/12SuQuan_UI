@@ -66,7 +66,8 @@ class Game extends Phaser.Scene {
                 scene: this,
                 x: this.cameras.main.width / 2,
                 y: 900,
-                atackMonter: (monster) => {
+                atackMonter: async (monster) => {
+                    await request.post('/updateData', this.getInfoPlayer());
                     this.isDataReady = false;
                     this.isComback = false;
                     const data = { self: this.dataPlayer, other: { ...monster, userName: monster.name } };
