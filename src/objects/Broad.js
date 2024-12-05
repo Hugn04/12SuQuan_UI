@@ -1,3 +1,5 @@
+import randomSeed from '../helpers/randomSeed';
+
 class Broad extends Phaser.GameObjects.Container {
     static candySize = 117.5; // Chuyển candySize thành thuộc tính static
 
@@ -9,6 +11,7 @@ class Broad extends Phaser.GameObjects.Container {
         if (this.socket) {
             this.handleServer();
         }
+        this.randomSeed = randomSeed(this.socket ? this.socket.roomID : Math.random());
         this.isFirst = true;
         this.arrBroad = config.initBoard.slice();
         this.temp = 0;
@@ -37,15 +40,6 @@ class Broad extends Phaser.GameObjects.Container {
                 this.add(candy);
             });
         });
-        this.scene.input.keyboard.on('keydown', async (event) => {
-            if (event.key === 'd') {
-                this.socket.emit('setRandom', { roomID: this.socket.roomID });
-            } else if (event.key === 'r') {
-                this.syncCandy(config.initBoard);
-            }
-
-            console.log('đã change');
-        });
         window.auto = false;
         this.setSize(this.candySize * this.gridSize.x, this.candySize * this.gridSize.y);
         this.setPosition(config.x - this.width / 2, config.y - this.height / 2 - this.height / 4);
@@ -58,13 +52,12 @@ class Broad extends Phaser.GameObjects.Container {
         this.candyActive.setVisible(false);
         this.candyActive.setDepth(999);
         const color = this.scene.sys.game.config.backgroundColor;
-
         const backgroundColorInt = Phaser.Display.Color.GetColor(color.r, color.g, color.b);
 
         this.veli = this.scene.add
             .rectangle(0, 0, this.gridSize.x * this.candySize, this.candySize * this.numRow, backgroundColorInt)
-            .setOrigin(0)
-            .setAlpha(0.5); // Bỏ comment để dev
+            .setOrigin(0);
+        // .setAlpha(0.5); // Bỏ comment để dev
         this.add([this.veli, this.candyActive]);
 
         this.checkMatches();
@@ -75,12 +68,6 @@ class Broad extends Phaser.GameObjects.Container {
         this.socket.on('updateInGame', ({ swap }) => {
             this.swapCandies(swap[0], swap[1]);
             this.isMyTurn = true;
-        });
-        this.socket.on('getRandom', async ({ arrRandom }) => {
-            this.arrBroad = arrRandom.slice();
-            await this.waitForChange();
-            let matches = this.findMatches();
-            this.handleMatches(matches);
         });
     }
     onCandyClicked(pointer, candy) {
@@ -209,9 +196,6 @@ class Broad extends Phaser.GameObjects.Container {
         let matches = this.findMatches();
         if (matches.length > 0) {
             this.handleMatches(matches);
-            if (this.socket && this.isMyTurn && !this.isFirst) {
-                this.socket.emit('setRandom', { roomID: this.socket.roomID });
-            }
         } else {
             let foundCanyMatch = this.canSwapAndMatch();
 
@@ -230,10 +214,10 @@ class Broad extends Phaser.GameObjects.Container {
                 }, 1000);
             }
 
-            if (!this.isAnimation && this.isMyTurn && window.auto) {
+            if (!this.isAnimation && this.isMyTurn) {
                 console.log('Máy 2');
 
-                const swap = foundCanyMatch[foundCanyMatch.length - 1];
+                const swap = foundCanyMatch[Phaser.Math.Between(0, foundCanyMatch.length - 1)];
 
                 setTimeout(() => {
                     this.swapCandies(swap[0], swap[1]);
@@ -412,7 +396,7 @@ class Broad extends Phaser.GameObjects.Container {
                 }
             }
             for (let row = 0; row < emptySpaces; row++) {
-                let type = Phaser.Math.Between(0, 5);
+                let type = this.randomSeed(0, 5);
                 const candy = this.scene.add
                     .sprite(col * this.candySize, row * this.candySize, 'candies', type)
                     .setOrigin(0)
@@ -440,20 +424,6 @@ class Broad extends Phaser.GameObjects.Container {
         }
 
         this.scene.time.delayedCall(800, this.checkMatches, [], this);
-    }
-    waitForChange() {
-        return new Promise((resolve) => {
-            const checkChange = () => {
-                if (JSON.stringify(this.arrRandom) !== JSON.stringify(this.arrBroad)) {
-                    this.arrRandom = this.arrBroad.slice();
-                    this.syncCandy(this.arrRandom);
-                    resolve();
-                } else {
-                    setTimeout(checkChange, 50);
-                }
-            };
-            checkChange();
-        });
     }
     static preload(scene) {
         scene.load.spritesheet('candies', 'assets/sprites/candy.jpeg', {
